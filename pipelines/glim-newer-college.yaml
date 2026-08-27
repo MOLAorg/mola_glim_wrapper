@@ -1,0 +1,108 @@
+# -----------------------------------------------------------------------------
+# GLIM algorithm parameters, for the Newer College Dataset, 2020 collection
+# (Ouster OS1-64 + its built-in IMU, handheld pole rig walked around New
+# College, Oxford).
+#
+# Starting point is glim-oxford-spires.yaml: the same kind of platform
+# (handheld, campus, mixed built and vegetated) at the same scan rate. Only
+# the extrinsics and the sensor-specific notes are changed; no Newer College
+# specific retuning has been done, deliberately.
+#
+# The 2021 collection (OS0-128 + Alphasense) is a different rig with
+# different topics and extrinsics; it needs its own file.
+#
+# Only GLIM's odometry stage runs: its sub-mapping / global-mapping stages
+# (loop closure + global optimization) are deliberately not instantiated, so
+# these numbers stay comparable with the other LiDAR-inertial ODOMETRY
+# wrappers rather than with a full SLAM system.
+#
+# Every key below is applied on top of the JSON in `glim-config/`, which is
+# where the handful of GLIM parameters with no programmatic path in still
+# live (crop box, initialization window, marginal covariances).
+# -----------------------------------------------------------------------------
+
+# T_lidar_imu: pose of the IMU frame wrt the LiDAR frame, which is GLIM's own
+# `T_lidar_imu` convention exactly, so this value goes in uninverted. Same
+# value and same origin as the Fast-LIO2 and DLIO wrappers' newer-college
+# pipelines: composed from the bags' own /tf_static and confirmed by the
+# published kalibr output, whose quaternion (0, 0, 1, 0) is that 180 deg yaw.
+#
+# The 180 deg is the part that is easy to miss: the Ouster's IMU and lidar
+# frames are anti-aligned in azimuth and only 0.032 m apart, so a
+# translation-only version of this line is wrong twice over.
+imu_pose_in_lidar: "-0.006253 0.011775 -0.028535 180 0 0"
+
+# T_base_lidar: identity. base_link here IS the LiDAR. Note this is NOT the
+# frame the published ground truth is in -- that is a further 135 deg of yaw
+# away, but it is the evaluation's business (dataset-map.yml's
+# gt_body_offset), not this file's: every method must report in the same
+# base_link for the comparison to mean anything.
+baselink2lidar_pose_str: "0 0 0 0 0 0"
+
+lidar_sensor_label: "lidar"
+imu_sensor_label: "imu"
+
+# Fallback only: the OS1-64 PointCloud2 in these bags carries a real
+# per-point "t" field, so this is unused in practice. The lidar runs at
+# 10 Hz.
+fallback_scan_period: 0.1
+
+# Near-range cut applied by the wrapper before GLIM sees the scan. Left at 0
+# because GLIM has its own `distance_near_thresh` below, which does the same
+# job; the two would otherwise stack silently.
+blind: 0.0
+
+# --- GLIM's own JSON config directory ---
+# Empty resolves to the installed share/mola_glim_wrapper/glim-config.
+glim_config_path: ${GLIM_CONFIG_PATH|''}
+
+# GLIM's own log verbosity: off|error|warn|info|debug|trace. See Types.hpp.
+log_level: ${GLIM_LOG_LEVEL|error}
+
+# --- IMU noise (generic MEMS-grade values; the OS1's built-in IMU is not
+#     separately characterized) ---
+imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
+imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
+imu_int_noise:  ${GLIM_INT_NOISE|0.001}
+imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+
+# --- Preprocessing ---
+# The rig is carried on a pole by a walking operator, so the carrier
+# generates a dense near-field cluster rigidly attached to the sensor, which
+# acts as a false zero-motion constraint on registration. Same 1.0 m cut, for
+# the same reason, as the Oxford Spires handheld config.
+distance_near_thresh: ${GLIM_NEAR_THRESH|1.0}
+distance_far_thresh:  ${GLIM_FAR_THRESH|100.0}
+use_random_grid_downsampling: ${GLIM_RANDOM_DOWNSAMPLE|true}
+downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
+downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
+downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
+enable_outlier_removal: false
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+
+# --- Registration ---
+registration_type: ${GLIM_REGISTRATION|GICP}
+max_iterations:    ${GLIM_MAX_ITERATIONS|8}
+lru_thresh:        100
+target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|0.5}
+ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
+vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|0.5}
+vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
+vgicp_voxelmap_scaling_factor: 2.0
+
+# --- Estimator ---
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
+fix_imu_bias:        false
+validate_imu:        true
+save_imu_rate_trajectory: false
+num_threads:         ${GLIM_NUM_THREADS|4}
+
+# --- Estimated trajectory output ---
+# Dumped to disk on shutdown when enabled -- mirrors mola_lidar_odometry's
+# `estimated_trajectory` pipeline block (same env var names), needed so
+# `mola-cli` (online mode) can export a trajectory the same way the offline
+# `mola-glim-cli` app already does via its own `--output-tum-path` flag.
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}

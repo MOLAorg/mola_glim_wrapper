@@ -1,0 +1,120 @@
+# -----------------------------------------------------------------------------
+#                        SLAM system definition for MOLA
+# This file defines:
+# GLIM odometry (see mola::GlimOdometry) from the Oxford Spires
+# Dataset, read directly from its ROS 2 bag(s) via mola::Rosbag2Dataset.
+#
+# Dataset: Oxford Spires (https://dynamic.robots.ox.ac.uk/datasets/oxford-spires)
+# Sensor inventory (confirmed with a bag's metadata.yaml):
+#   /hesai/pandar                                       sensor_msgs/PointCloud2   Hesai Pandar, ~10 Hz
+#   /alphasense_driver_ros/imu                           sensor_msgs/Imu           Alphasense IMU, ~400 Hz
+# NO /tf or /tf_static in these bags, so use_fixed_sensor_pose is mandatory
+# for every sensor.
+#
+# Extrinsics: same values as mola_lidar_odometry's
+# lidar_odometry_from_oxford_spires.yaml, i.e. every pose is
+# T_base_sensor = T_base_lidar . T_lidar_sensor, with T_base_lidar taken from
+# the dataset's sensor.yaml ("0 0 0.124 180 0 0").
+#
+# The base frame, not the raw LiDAR frame, because that is the frame this
+# dataset's ground truth uses. Until 2026-08-10 the LiDAR sat at identity
+# here, which put every estimated pose 180 deg of body yaw away from the
+# reference. An aligned APE barely notices (a body yaw moves position only by
+# the 0.124 m lever arm) but it negates the horizontal part of every relative
+# motion, so relative drift and tilt metrics measured the frame convention
+# instead of the odometry.
+#
+# No separate state_estimation module here (unlike mola::LidarOdometry's
+# launch files): GLIM carries its own fixed-lag factor-graph estimator and
+# publishes its pose/map updates directly. Only GLIM's odometry stage runs --
+# its sub-mapping and global-mapping stages are not instantiated.
+#
+# Some sequences are split across several ros2bag directories (a multipart
+# recording); mola::Rosbag2Dataset accepts a YAML sequence for
+# 'rosbag_filename' and replays them back-to-back as a single continuous
+# dataset, so this file exposes OXFORD_SPIRES_BAG_0..5 (unused slots resolve
+# to an empty string and are silently skipped). Use the
+# mola-glim-gui-oxford-spires wrapper script to fill these in
+# automatically from a sequence directory.
+#
+# Usage (normally invoked through scripts/mola-glim-gui-oxford-spires
+# instead):
+#   OXFORD_SPIRES_BAG_0=$SEQ/raw/ros2bag/<part0>/ \
+#   OXFORD_SPIRES_BAG_1=$SEQ/raw/ros2bag/<part1>/ \
+#     mola-cli $(ros2 pkg prefix mola_glim_wrapper)/share/mola_glim_wrapper/mola-cli-launchs/glim_from_oxford_spires.yaml
+#
+# Optional overrides:
+#   MOLA_WITH_GUI=false        -- headless mode
+#   MOLA_TIME_WARP=1.0         -- playback speed factor
+#   MOLA_QUIT_ON_DATASET_END=true  -- exit when the bag(s) end
+# -----------------------------------------------------------------------------
+
+modules:
+  # =====================
+  # MolaViz / MolaVizImGui
+  # =====================
+  - name: viz
+    type: ${MOLA_GUI_MODULE|mola::MolaVizImGui}
+    enabled: ${MOLA_WITH_GUI|true}
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_VIZ|INFO}"
+    params:
+      imgui_app_name: glim_oxford_spires
+
+  # =====================
+  # Rosbag2Dataset (Oxford Spires)
+  # =====================
+  - name: dataset_input
+    type: mola::Rosbag2Dataset
+    verbosity_level: "${MOLA_VERBOSITY_ROSBAG2|INFO}"
+    execution_rate: 50 # Hz
+    quit_mola_app_on_dataset_end: ${MOLA_QUIT_ON_DATASET_END|false}
+
+    gui_preview_sensors:
+      - raw_sensor_label: "${MOLA_LIDAR_NAME|lidar}"
+        decimation: 1
+        enabled: ${MOLA_WITH_GUI|true}
+        win_pos: 5 5 400 400
+
+    params:
+      # Filled in by the mola-glim-gui-oxford-spires wrapper script, one
+      # entry per ros2bag directory of a (possibly multipart) sequence.
+      # Empty slots are silently skipped:
+      rosbag_filename:
+        - ${OXFORD_SPIRES_BAG_0}
+        - ${OXFORD_SPIRES_BAG_1|}
+        - ${OXFORD_SPIRES_BAG_2|}
+        - ${OXFORD_SPIRES_BAG_3|}
+        - ${OXFORD_SPIRES_BAG_4|}
+        - ${OXFORD_SPIRES_BAG_5|}
+
+      base_link_frame_id: "${MOLA_TF_BASE_LINK|base_link}"
+      time_warp_scale: ${MOLA_TIME_WARP|1.0}
+      start_paused: ${MOLA_DATASET_START_PAUSED|false}
+      # 0 (default): replay the whole sequence. Set e.g. to quickly validate
+      # a long sequence without waiting for it to finish:
+      max_duration_sec: ${MOLA_MAX_DURATION_SEC|0}
+
+      sensors:
+        - topic: "${MOLA_LIDAR_TOPIC|/hesai/pandar}"
+          type: CObservationPointCloud
+          sensorLabel: "${MOLA_LIDAR_NAME|lidar}"
+          # T_base_lidar, from the dataset's sensor.yaml:
+          fixed_sensor_pose: "0 0 0.124 180 0 0"
+          use_fixed_sensor_pose: true
+
+        - topic: "${MOLA_IMU_TOPIC|/alphasense_driver_ros/imu}"
+          type: CObservationIMU
+          sensorLabel: imu
+          # T_base_imu, derived from cam0's C_q_CI/C_r_CI (cam0-to-imu) and
+          # C_q_CL/C_r_CL (cam0-to-lidar), then composed through T_base_lidar:
+          fixed_sensor_pose: "-0.018771 0.008218 0.053526 89.3737 -0.1665 -0.1287"
+          use_fixed_sensor_pose: true
+
+  # =====================
+  # GLIM odometry
+  # =====================
+  - name: lidar_odom
+    type: mola::GlimOdometry
+    verbosity_level: "${MOLA_VERBOSITY_MOLA_LO|INFO}"
+    raw_data_source: "dataset_input"
+    params: "${MOLA_ODOMETRY_PIPELINE_YAML|../pipelines/glim-oxford-spires.yaml}"

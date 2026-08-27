@@ -1,0 +1,88 @@
+# -----------------------------------------------------------------------------
+# GLIM algorithm parameters, for the KITTI odometry benchmark
+# (Velodyne HDL-64E, car).
+#
+# KITTI's odometry-benchmark sequences carry no IMU stream at all (unlike KITTI
+# raw/tracking). mola-glim-cli's --input-kitti-seq wraps KittiOdometryDataset
+# in a decorator that synthesizes a constant-gravity, zero-angular-rate
+# CObservationIMU immediately before each real LiDAR scan -- enough for GLIM's
+# LOOSE initialization to converge to "level, stationary", while the actual
+# motion estimate comes entirely from LiDAR scan-to-model registration. The
+# same technique, with the same constant and the same one-sample-per-scan
+# rate, is what mola_dlio_wrapper and mola_fast_lio2_wrapper do for KITTI, so
+# the methods are fed identically.
+#
+# Offline only: the synthetic-IMU decorator lives in the offline CLI, so there
+# is no mola-cli launch YAML for KITTI in this wrapper.
+#
+# The synthetic IMU carries no real mounting information, so both extrinsics
+# below are identity -- there is no physical "IMU frame" to place relative to
+# the LiDAR.
+# -----------------------------------------------------------------------------
+
+lidar_sensor_label: "lidar"
+imu_sensor_label: "imu"
+
+imu_pose_in_lidar: "0 0 0 0 0 0"
+baselink2lidar_pose_str: "0 0 0 0 0 0"
+
+# KITTI's HDL-64E scans carry no per-point timestamp field through this reader,
+# so toGlimCloud() always takes the azimuth-based fallback branch, assuming the
+# documented 10 Hz scan rate and that the observation timestamp marks the
+# scan's END. That makes the reported pose timestamp equal to the scan's own
+# recorded/GT-aligned timestamp, so no TIME_OFFSET correction is needed in the
+# harness -- the same position Fast-LIO2 and KISS-ICP are in on this dataset,
+# and unlike DLIO. Verify it on the first run rather than assuming it.
+fallback_scan_period: 0.1
+
+blind: 0.0
+
+glim_config_path: ${GLIM_CONFIG_PATH|''}
+
+# GLIM's own log verbosity: off|error|warn|info|debug|trace. See Types.hpp.
+log_level: ${GLIM_LOG_LEVEL|error}
+
+# --- IMU noise. The synthetic stream is noiseless and perfectly level, so
+#     these only set how fast the filter trusts it; kept at the wrapper's
+#     generic defaults rather than tightened, so the LiDAR term keeps
+#     dominating the update, which is the whole point of the arrangement. ---
+imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
+imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
+imu_int_noise:  ${GLIM_INT_NOISE|0.001}
+imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+
+# --- Preprocessing. Automotive: a longer range and a coarser voxel than the
+#     handheld campus configuration. KITTI's published clouds are already
+#     cropped of the ego vehicle, so there is no carrier cluster to remove
+#     and the near cut stays at GLIM's own default. ---
+distance_near_thresh: ${GLIM_NEAR_THRESH|0.5}
+distance_far_thresh:  ${GLIM_FAR_THRESH|150.0}
+use_random_grid_downsampling: ${GLIM_RANDOM_DOWNSAMPLE|true}
+downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
+downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
+downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
+enable_outlier_removal: false
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+
+# --- Registration ---
+registration_type: ${GLIM_REGISTRATION|GICP}
+max_iterations:    ${GLIM_MAX_ITERATIONS|8}
+lru_thresh:        100
+target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|1.0}
+ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
+vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|1.0}
+vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
+vgicp_voxelmap_scaling_factor: 2.0
+
+# --- Estimator ---
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
+fix_imu_bias:        false
+validate_imu:        true
+save_imu_rate_trajectory: false
+num_threads:         ${GLIM_NUM_THREADS|4}
+
+# --- Estimated trajectory output ---
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}

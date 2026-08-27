@@ -1,0 +1,90 @@
+# -----------------------------------------------------------------------------
+# GLIM algorithm parameters, for the Oxford Spires dataset
+# (Hesai Pandar QT64 LiDAR + Alphasense IMU, handheld/backpack platform).
+#
+# Only GLIM's odometry stage runs: its sub-mapping / global-mapping stages
+# (loop closure + global optimization) are deliberately not instantiated, so
+# these numbers stay comparable with the other LiDAR-inertial ODOMETRY
+# wrappers rather than with a full SLAM system.
+#
+# Every key below is applied on top of the JSON in `glim-config/`, which is
+# where the handful of GLIM parameters with no programmatic path in still
+# live (crop box, initialization window, marginal covariances).
+# -----------------------------------------------------------------------------
+
+# T_lidar_imu: pose of the IMU frame wrt the LiDAR frame, which is GLIM's own
+# `T_lidar_imu` convention exactly ("T_world_imu = T_world_lidar *
+# T_lidar_imu"), so this value goes in uninverted -- unlike the Fast-LIO2
+# wrapper, whose extrinsic is the inverse of this one.
+imu_pose_in_lidar: "0.018771 -0.008218 -0.070474 -90.6263 -0.1665 -0.1287"
+
+# T_base_lidar: pose of the LiDAR frame wrt base_link. The Hesai LiDAR is NOT
+# the reference frame in this dataset -- base_link is a 180 deg yaw and
+# 0.124 m away from it, and the dataset's ground truth is in base_link.
+baselink2lidar_pose_str: "0 0 0.124 180 0 0"
+
+lidar_sensor_label: "lidar"
+imu_sensor_label: "imu"
+
+# Fallback only: the Hesai Pandar PointCloud2 in this dataset carries a real
+# per-point "timestamp" field, so this is unused in practice.
+fallback_scan_period: 0.1
+
+# Near-range cut applied by the wrapper before GLIM sees the scan. Left at 0
+# because GLIM has its own `distance_near_thresh` below, which does the same
+# job; the two would otherwise stack silently.
+blind: 0.0
+
+# --- GLIM's own JSON config directory ---
+# Empty resolves to the installed share/mola_glim_wrapper/glim-config.
+glim_config_path: ${GLIM_CONFIG_PATH|''}
+
+# GLIM's own log verbosity: off|error|warn|info|debug|trace. See Types.hpp.
+log_level: ${GLIM_LOG_LEVEL|error}
+
+# --- IMU noise (generic MEMS-grade values; not separately characterized for
+#     the Alphasense IMU used here) ---
+imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
+imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
+imu_int_noise:  ${GLIM_INT_NOISE|0.001}
+imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+
+# --- Preprocessing ---
+# The handheld/backpack carrier produces a dense near-field cluster rigidly
+# attached to the sensor, which acts as a false zero-motion constraint on
+# registration; 1.0 m is the cut the other wrappers use on this dataset.
+distance_near_thresh: ${GLIM_NEAR_THRESH|1.0}
+distance_far_thresh:  ${GLIM_FAR_THRESH|100.0}
+use_random_grid_downsampling: ${GLIM_RANDOM_DOWNSAMPLE|true}
+downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
+downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
+downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
+enable_outlier_removal: false
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+
+# --- Registration ---
+registration_type: ${GLIM_REGISTRATION|GICP}
+max_iterations:    ${GLIM_MAX_ITERATIONS|8}
+lru_thresh:        100
+target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|0.5}
+ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
+vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|0.5}
+vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
+vgicp_voxelmap_scaling_factor: 2.0
+
+# --- Estimator ---
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
+fix_imu_bias:        false
+validate_imu:        true
+save_imu_rate_trajectory: false
+num_threads:         ${GLIM_NUM_THREADS|4}
+
+# --- Estimated trajectory output ---
+# Dumped to disk on shutdown when enabled -- mirrors mola_lidar_odometry's
+# `estimated_trajectory` pipeline block (same env var names), needed so
+# `mola-cli` (online mode) can export a trajectory the same way the offline
+# `mola-glim-cli` app already does via its own `--output-tum-path` flag.
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}
