@@ -174,7 +174,8 @@ rotated by the estimated attitude.
   the trajectory on a 10 Hz sensor.
 
   Shortening the window buys the head back and costs accuracy, monotonically.
-  Measured on kitti-04 (271 scans):
+  Measured on kitti-04 (271 scans), before the single-threaded default
+  landed, so the pose counts and stamps are exact and the APEs are draws:
 
   | `initialization_window_size` | poses | first stamp | APE RMSE |
   |---|---|---|---|
@@ -190,46 +191,48 @@ rotated by the estimated attitude.
 
 - **`NAIVE` initialization is not a cheaper `LOOSE`.** It buys back exactly
   one scan (kitti-04 242 -> 241, oxford-spires 2863 -> 2864) and costs
-  accuracy on both (kitti-04 0.182 -> 0.193 m, oxford-spires
-  0.063 -> 0.096 m).
-- **`k_correspondences` matters more than `ivox_resolution`, and upstream's
-  default of 10 is too few for a sparse LiDAR.** On BotanicGarden 1005_00
-  (16-ring VLP-16), scored the way the evaluation harness does (ground-truth
-  body offset, +0.05 s onto the reference clock, all 5760 poses associated),
-  one line per run:
+  accuracy on both. Measured before the single-threaded default landed, so
+  read the sign rather than the digits.
+- **`k_correspondences` 10 is too few for a sparse LiDAR, and that is the one
+  place these pipelines leave upstream's values.** All numbers below are
+  single-threaded and therefore exactly reproducible; each is one run.
 
-  | | `k_correspondences` 10 | `k_correspondences` 20 |
+  BotanicGarden (16-ring VLP-16), scored the way the evaluation harness does
+  (ground-truth body offset, +0.05 s onto the reference clock, every pose
+  associated):
+
+  | sequence | upstream 1.0 m / k 10 | shipped 0.3 m / k 20 |
   |---|---|---|
-  | `ivox_resolution` 1.0 | 2.23 / 2.58 / 2.15 / 1.61 m | 2.26 m |
-  | `ivox_resolution` 0.5 | **17.9** m | 1.19 m |
-  | `ivox_resolution` 0.3 | 2.86 m | 1.82 / 0.69 / 0.98 m |
-  | `ivox_resolution` 0.2 | -- | 0.36 m |
+  | 1005_00 | 1.572 m | **0.624 m** |
+  | 1018_00 | 0.095 m | **0.090 m** |
+  | 1018_13 | 0.134 m | **0.080 m** |
 
-  Two things follow. A finer target map only helps once the covariances are
-  well conditioned: at 10 neighbors, going from 1.0 m to 0.3 m makes things
-  slightly worse and the single 0.5 m run diverged outright, while at 20
-  neighbors the same change roughly halves the mean error and nothing
-  diverged in seven runs. Ten neighbors is not enough to condition a GICP
-  covariance on 16 rings, which is why `glim-botanic.yaml` ships 20 and
-  0.3 m. (The 17.9 m cell is one run, not a measured divergence rate.)
+  It is not only the hard sequence that improves: the two that were already
+  good improve as well, which is what makes this a conditioning fix rather
+  than a fit to one route. A finer target map alone does not do it -- at 10
+  neighbors, 1005_00 gets *worse* going from 1.0 m to 0.3 m, and a 0.5 m run
+  diverged outright to 17.9 m. Ten neighbors is not enough to condition a
+  GICP covariance on 16 rings.
 
-  Read that table with the method's run-to-run spread in mind: GLIM
-  randomizes its grid downsampling and evaluates factors under OpenMP, so
-  repeated runs of one configuration differ by roughly a third here (and by
-  a few percent on KITTI). The 1.0/10 and 0.3/20 replicate ranges above
-  overlap slightly; the ~2x difference in their means is the claim, not any
-  single pair of numbers.
+- **The same change is a net loss on KITTI, so the KITTI pipeline keeps
+  upstream's values** and its first numbers are unretuned ones:
 
-- **None of that transfers to a dense or an automotive LiDAR**, which is why
-  only the BotanicGarden pipeline moves off upstream's values. Oxford Spires
-  observatory-quarter-01 (64-ring Hesai QT64) is best exactly where it ships:
-  0.063 m at `ivox_resolution` 0.5 / `k_correspondences` 10, against 0.071 m
-  at k 20 and 0.078 m at 0.3 m. On KITTI the same sweep contradicts itself
-  between sequences and inside the noise -- kitti-08 (3.2 km) is best at the
-  shipped 1.0 / 10 (2.89 m, against 3.19 m at 0.5/20 and 3.66 m at 0.3/20),
-  while kitti-00 replicates of one configuration span 3.9-5.4 m -- so the
-  KITTI pipeline keeps upstream's defaults and the first numbers it produces
-  are unretuned ones.
+  | | shipped 1.0 m / k 10 | 0.5 m / k 20 |
+  |---|---|---|
+  | kitti-00 | 6.360 m | **4.417 m** |
+  | kitti-02 | **12.462 m** | 17.913 m |
+  | kitti-04 | 0.181 m | **0.161 m** |
+  | kitti-05 | **1.790 m** | 2.218 m |
+  | kitti-07 | 0.877 m | **0.853 m** |
+
+  Three small wins against two large losses; summed APE is 21.7 m shipped
+  against 25.6 m. Note kitti-08 is deliberately absent: its published ground
+  truth is known-faulty, so it cannot arbitrate anything.
+
+- **Oxford Spires is also best where it ships** (64-ring Hesai QT64,
+  observatory-quarter-01): 0.093 m at `ivox_resolution` 0.5 /
+  `k_correspondences` 10, against 0.099 m at k 20. Left where it is.
+
 - **KITTI has no IMU**, so `--input-kitti-seq` wraps the dataset in a
   decorator that synthesizes a constant-gravity, zero-rate IMU sample before
   each scan — the same technique, constant and rate as the DLIO and Fast-LIO2
