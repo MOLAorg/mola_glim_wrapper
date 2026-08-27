@@ -99,6 +99,32 @@ Note the online path is **not** loss-free: scans go through a
 CLI feeds one observation at a time and waits on `isBusy()`, which is what
 makes it lossless.
 
+## Determinism
+
+`mola-glim-cli` defaults to `--num-threads 1`, and at one thread two runs of
+one configuration produce **byte-identical** output.
+
+Above one thread they do not. GLIM's random-grid downsampling draws from a
+per-thread RNG inside an OpenMP loop with a dynamic schedule and appends the
+survivors through an atomic cursor, so which thread samples which voxel, and
+the order the survivors land in, are both decided by the scheduler and not
+by the RNG; that then moves k-NN tie-breaking and float summation order.
+Measured on kitti-04, two runs at 4 threads differ by 0.27 m at their worst
+pose and by 0.15 m RMS, which is larger than most of the parameter effects
+in the tuning notes below.
+
+One thread costs about 1.3x wall clock (33.3 s against 25.5 s on kitti-04),
+because GLIM's time is dominated by its serial fixed-lag smoother. Every
+OpenMP pragma in the vendored libraries carries an explicit `num_threads()`
+clause and none reads `OMP_NUM_THREADS`, so the pipeline's `num_threads` is
+the whole control. `--num-threads N` overrides it, an exported
+`GLIM_NUM_THREADS` overrides the default, and the effective value is printed
+at startup so a threaded run and a deterministic one never look alike.
+
+The online (`mola-cli`) path keeps whatever the pipeline YAML says, since it
+is already non-reproducible for a different reason: it drops scans under
+load.
+
 ## Parameters
 
 The pipeline YAML is the source of truth for everything this wrapper

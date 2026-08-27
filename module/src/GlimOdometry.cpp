@@ -193,7 +193,9 @@ void GlimOdometry::initialize_frontend(const Yaml & cfg)
   MRPT_LOG_INFO_STREAM(
     "GlimOdometry initialized. lidar_sensor_label='"
     << lidar_sensor_label << "' imu_sensor_label='" << imu_sensor_label << "' registration='"
-    << core_cfg_.registration_type << "' config_path='" << core_cfg_.glim_config_path << "'");
+    << core_cfg_.registration_type << "' num_threads=" << core_cfg_.num_threads
+    << (core_cfg_.num_threads == 1 ? " (deterministic)" : " (NOT deterministic)")
+    << " config_path='" << core_cfg_.glim_config_path << "'");
 
   MRPT_TRY_END
 }

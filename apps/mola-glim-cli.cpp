@@ -102,6 +102,17 @@ struct Cli
     "Number of dataset entries to run",
     cmd};
 
+  TCLAP::ValueArg<int> arg_numThreads{
+    "",
+    "num-threads",
+    "Worker threads GLIM may use. Defaults to 1, which makes an offline run "
+    "bit-for-bit reproducible; anything above 1 is faster and NOT "
+    "reproducible (see the comment in main_odometry())",
+    false,
+    1,
+    "1",
+    cmd};
+
 #if defined(HAVE_MOLA_INPUT_MULRAN)
   TCLAP::ValueArg<std::string> argMulranSeq{
     "",    "input-mulran-seq", "INPUT DATASET: Use Mulran dataset sequence KAIST01|KAIST01|...",
@@ -458,8 +469,48 @@ void mola_install_signal_handler()
   sigaction(SIGINT, &sigIntHandler, nullptr);
 }
 
+/** Pins the thread count the pipeline YAML reads, and says which way.
+ *
+ * GLIM's random-grid downsampling draws from a per-thread RNG inside an
+ * OpenMP loop with a dynamic schedule, and appends the survivors through an
+ * atomic cursor. Which thread draws for which voxel, and the order the
+ * results land in, are therefore both decided by the scheduler rather than
+ * by the RNG -- so two runs of one configuration sample different points in
+ * a different order, which then moves k-NN tie-breaking and float summation
+ * order. Measured on kitti-04: at 4 threads two runs differ by 0.27 m at
+ * their worst pose; at 1 thread the two output files are byte-identical.
+ * The cost is about 1.3x wall clock, because GLIM's time is dominated by
+ * its serial fixed-lag smoother.
+ *
+ * The offline CLI already promises losslessness, so it promises
+ * reproducibility too and defaults to one thread. Every OpenMP pragma in
+ * the vendored libraries carries an explicit num_threads() clause, so this
+ * one value is the whole control -- OMP_NUM_THREADS is not read anywhere.
+ *
+ * An explicit --num-threads wins over the environment; otherwise an
+ * exported GLIM_NUM_THREADS still wins over the default, so a caller who
+ * wants speed does not have to change the command line.
+ */
+void pin_thread_count(Cli & cli)
+{
+  const std::string n = std::to_string(cli.arg_numThreads.getValue());
+  const bool explicitFlag = cli.arg_numThreads.isSet();
+
+  ::setenv("GLIM_NUM_THREADS", n.c_str(), explicitFlag ? 1 : 0);
+
+  const char * effective = ::getenv("GLIM_NUM_THREADS");
+  const bool deterministic = effective != nullptr && std::string(effective) == "1";
+
+  std::cout << "GLIM_NUM_THREADS=" << (effective ? effective : "?") << " ("
+            << (deterministic ? "deterministic: identical inputs give an identical trajectory"
+                              : "NOT deterministic: >1 thread makes the sampling order vary")
+            << ")\n";
+}
+
 int main_odometry(Cli & cli)
 {
+  pin_thread_count(cli);
+
   auto glim = mola::GlimOdometry::Create();
 
   mrpt::system::VerbosityLevel logLevel = glim->getMinLoggingLevel();
