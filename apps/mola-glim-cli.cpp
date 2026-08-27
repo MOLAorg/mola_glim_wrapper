@@ -547,9 +547,11 @@ int main_odometry(Cli & cli)
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
+    // No `cnt = 0` reset inside the branch: that makes `cnt++ % 100` fire on
+    // every iteration, which on an IMU-heavy dataset is hundreds of thousands
+    // of progress lines (tens of MB) in a CI log.
     static int cnt = 0;
     if (cnt++ % 100 == 0) {
-      cnt = 0;
       const size_t N = (dataset->datasetSize() - 1);
       const double pc = N > 0 ? static_cast<double>(i) / static_cast<double>(N) : 1.0;
       const double tNow = mrpt::Clock::nowDouble();

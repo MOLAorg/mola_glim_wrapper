@@ -53,6 +53,10 @@ public:
 
   // Init state
   std::string initialization_mode;
+  // Length, in seconds, of the LOOSE-initialization window. Defaults from
+  // config_odometry, exactly as LooseInitialStateEstimation reads it; held
+  // here so a caller constructing the params struct can override it too.
+  double initialization_window_size;
   bool estimate_init_state;
   Eigen::Isometry3d init_T_world_imu;
   Eigen::Vector3d init_v_world_imu;

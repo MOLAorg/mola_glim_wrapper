@@ -69,7 +69,11 @@ downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
 downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
 downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
 enable_outlier_removal: false
-k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+# 20, not GLIM's default 10. A 16-ring VLP-16 is sparse enough that a
+# 10-neighbor GICP covariance is badly conditioned: at 10 this sequence
+# diverged outright on one run in three, and the mean APE is about twice
+# what it is at 20. See the README's tuning table.
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|20}
 
 # --- Registration ---
 registration_type: ${GLIM_REGISTRATION|GICP}
@@ -83,7 +87,9 @@ target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
 # Oxford Spires (0.5 -> 0.063 m, 1.0 -> 0.179 m), which is what makes it a
 # per-dataset choice: a sparse spinning 16-beam sensor in vegetation
 # supports a coarser target map than a dense short-range one indoors.
-ivox_resolution:   ${GLIM_IVOX_RESOLUTION|1.0}
+# Finer than GLIM's default 1.0, which only pays off once k_correspondences
+# is raised: at 10 neighbors a finer target map makes things worse.
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|0.3}
 ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
 vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|0.5}
 vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
@@ -91,6 +97,10 @@ vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
 initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+# Seconds of LOOSE bootstrapping. Every scan inside this window is consumed
+# without producing a pose, so this is also how much trajectory is missing
+# from the head of every run.
+initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false
 validate_imu:        true

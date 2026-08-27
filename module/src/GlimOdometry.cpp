@@ -151,6 +151,7 @@ void GlimOdometry::initialize_frontend(const Yaml & cfg)
 
   YAML_LOAD_OPT3(core_cfg_, fix_imu_bias, bool);
   YAML_LOAD_OPT3(core_cfg_, initialization_mode, std::string);
+  YAML_LOAD_OPT3(core_cfg_, initialization_window_size, double);
   YAML_LOAD_OPT3(core_cfg_, init_pose_damping_scale, double);
   YAML_LOAD_OPT3(core_cfg_, smoother_lag, double);
   YAML_LOAD_OPT3(core_cfg_, use_isam2_dogleg, bool);

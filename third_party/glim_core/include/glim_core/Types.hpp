@@ -113,6 +113,10 @@ struct Config
   bool fix_imu_bias = false;
   /** "LOOSE" or "NAIVE": how the initial attitude/velocity is bootstrapped. */
   std::string initialization_mode = "LOOSE";
+  /** Seconds of LOOSE bootstrapping before the first pose is produced. Every
+   * scan in this window is consumed and reported as invalid, so it is also
+   * the length of trajectory missing from the head of every run. */
+  double initialization_window_size = 3.0;
   double init_pose_damping_scale = 1e10;
 
   double smoother_lag = 5.0;
@@ -134,8 +138,8 @@ struct Config
   /** Directory holding GLIM's own `config.json` and friends; required.
    *
    * GLIM reads several parameters straight from those JSON files with no
-   * programmatic path in (the crop-box filter, the initialization window,
-   * the marginal-covariance switch). Every field above is instead applied
+   * programmatic path in (the crop-box filter, the marginal-covariance
+   * switch). Every field above is instead applied
    * ON TOP of whatever the JSON says, so for those keys the pipeline YAML
    * is the single source of truth and the JSON value is inert. The defaults
    * above are upstream's own JSON defaults, so an un-set key changes

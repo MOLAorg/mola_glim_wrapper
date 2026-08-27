@@ -30,6 +30,12 @@ private:
   int num_threads;
   double window_size;
 
+public:
+  /// Overrides the window length read from config_odometry.
+  void set_window_size(double t) { window_size = t; }
+
+private:
+
   std::unique_ptr<CloudCovarianceEstimation> covariance_estimation;
 
   std::shared_ptr<gtsam_points::iVox> target_ivox;

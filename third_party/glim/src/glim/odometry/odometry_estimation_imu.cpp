@@ -53,6 +53,7 @@ OdometryEstimationIMUParams::OdometryEstimationIMUParams() {
   fix_imu_bias = config.param<bool>("odometry_estimation", "fix_imu_bias", false);
 
   initialization_mode = config.param<std::string>("odometry_estimation", "initialization_mode", "LOOSE");
+  initialization_window_size = config.param<double>("odometry_estimation", "initialization_window_size", 1.0);
   const auto init_T_world_imu = config.param<Eigen::Isometry3d>("odometry_estimation", "init_T_world_imu");
   const auto init_v_world_imu = config.param<Eigen::Vector3d>("odometry_estimation", "init_v_world_imu");
   this->estimate_init_state = !init_T_world_imu && !init_v_world_imu;
@@ -89,6 +90,7 @@ OdometryEstimationIMU::OdometryEstimationIMU(std::unique_ptr<OdometryEstimationI
     this->init_estimation.reset(init_estimation);
   } else if (params->initialization_mode == "LOOSE") {
     auto init_estimation = new LooseInitialStateEstimation(params->T_lidar_imu, params->imu_bias);
+    init_estimation->set_window_size(params->initialization_window_size);
     this->init_estimation.reset(init_estimation);
   } else {
     logger->error("unknown initialization mode {}", params->initialization_mode);

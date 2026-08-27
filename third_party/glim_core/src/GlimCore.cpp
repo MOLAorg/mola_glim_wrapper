@@ -109,6 +109,7 @@ GlimCore::GlimCore(const Config & cfg) : impl_(std::make_unique<Impl>())
   op.imu_int_noise = cfg.imu_int_noise;
   op.fix_imu_bias = cfg.fix_imu_bias;
   op.initialization_mode = cfg.initialization_mode;
+  op.initialization_window_size = cfg.initialization_window_size;
   op.init_pose_damping_scale = cfg.init_pose_damping_scale;
   op.smoother_lag = cfg.smoother_lag;
   op.use_isam2_dogleg = cfg.use_isam2_dogleg;

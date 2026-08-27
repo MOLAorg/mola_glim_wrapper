@@ -40,7 +40,21 @@ fix; none of them touches the estimation math.
    explicitly into `IMUIntegration`. Behavior is unchanged for a caller that
    does not set them; the point is that the MOLA pipeline YAML can.
 
-3. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
+3. **`include/glim/odometry/odometry_estimation_imu.hpp`,
+   `src/glim/odometry/odometry_estimation_imu.cpp`,
+   `include/glim/odometry/loose_initial_state_estimation.hpp` — the LOOSE
+   initialization window exposed on the params struct.** Same shape and same
+   reason as the change above: `initialization_window_size` was reachable only
+   through `config_odometry.json`, because `LooseInitialStateEstimation` read
+   it in its own constructor. It is now a field of
+   `OdometryEstimationIMUParams`, defaulted from the same JSON key with the
+   same fallback, and applied through a new
+   `LooseInitialStateEstimation::set_window_size()`. It decides how much
+   trajectory is missing from the head of every run, so it has to be settable
+   from the pipeline YAML; behavior is unchanged for a caller that leaves it
+   alone.
+
+4. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
    `find_package(gtsam_points ...)` is skipped when the target already exists
    (it does, since this package builds `gtsam_points` first), and the
    dlopen-able estimation-module `.so` loop, the install/export rules and the
@@ -48,7 +62,7 @@ fix; none of them touches the estimation math.
    package sets. Nothing is gated on it in a standalone build, so the tree
    still builds the way upstream intends.
 
-4. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
+5. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
    (need Iridescence, which is not packaged for this distro and is not built),
    plus `docs/`, `docker/`, `mkdocs.yml` and `package.xml` (this package
    supplies its own).

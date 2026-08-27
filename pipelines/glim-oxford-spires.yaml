@@ -75,6 +75,10 @@ vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
 initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+# Seconds of LOOSE bootstrapping. Every scan inside this window is consumed
+# without producing a pose, so this is also how much trajectory is missing
+# from the head of every run.
+initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false
 validate_imu:        true
