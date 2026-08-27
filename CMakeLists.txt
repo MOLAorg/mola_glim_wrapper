@@ -3,7 +3,7 @@
 #
 # Copyright (C) 2026, Jose Luis Blanco-Claraco
 # All rights reserved.
-# Released under GNU GPL v3. See LICENSE file.
+# Released under the BSD 3-Clause License. See LICENSE file.
 # See THIRD_PARTY_NOTICES.md for the licensing terms of the vendored
 # GLIM / gtsam_points code under third_party/.
 # ------------------------------------------------------------------------------

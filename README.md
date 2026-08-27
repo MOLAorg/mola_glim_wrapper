@@ -243,5 +243,14 @@ rotated by the estimated attitude.
 
 ## License
 
-GPL-3.0. See `LICENSE`, and `THIRD_PARTY_NOTICES.md` for the vendored MIT /
-BSD-2-Clause code under `third_party/`.
+BSD-3-Clause, for every file written for this package. See `LICENSE`, and
+`THIRD_PARTY_NOTICES.md` for the vendored MIT / BSD-2-Clause code under
+`third_party/`, which is permissive throughout and imposes nothing further.
+
+One caveat on the *binaries*: `mola::GlimOdometry` derives from
+`mola_kernel`, and the CLI's dataset readers come from
+`mola_input_{rawlog,rosbag2,kitti_dataset,mulran_dataset}`, all of which are
+GPL-3.0. The sources here stay BSD-3-Clause and can be reused as such, but
+anything linked against those MOLA packages is a combined work that has to be
+distributed under GPL-3.0. This is the same arrangement `mola_bridge_ros2`
+and `mola_traj_tools` already use.

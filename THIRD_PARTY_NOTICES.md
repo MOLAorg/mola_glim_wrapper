@@ -1,8 +1,8 @@
 # Third-party notices
 
-`mola_glim_wrapper` itself is GPL-3.0 (see `LICENSE`). It vendors, under
-`third_party/`, code from the projects below. Their own licenses apply to
-their own files and are reproduced in each subdirectory's `LICENSE`.
+`mola_glim_wrapper` itself is BSD-3-Clause (see `LICENSE`). It vendors,
+under `third_party/`, code from the projects below. Their own licenses apply
+to their own files and are reproduced in each subdirectory's `LICENSE`.
 
 ---
 
@@ -12,7 +12,9 @@ their own files and are reproduced in each subdirectory's `LICENSE`.
 - **Commit copied:** `bba7bf407844cd7db36f4c9a54d58298c9b044f6` (2026-08-18,
   "Fix normal coloring for odometry scans and keyframes (#321)"), version 1.2.2
 - **License:** MIT (`third_party/glim/LICENSE`)
-- **Copyright:** (c) 2024 Kenji Koide (koide3), and the GLIM contributors
+- **Copyright:** (c) 2024 Kenji Koide (koide3), and the GLIM contributors.
+  Bundles `thirdparty/json` (nlohmann/json, MIT, (c) 2013-2023 Niels
+  Lohmann), kept verbatim.
 
 Vendored by copy rather than as a submodule because it needed the edits
 below. Every change is either a build-integration change or a portability
@@ -103,15 +105,27 @@ fix; none of them touches the estimation math.
 
 ## `third_party/glim_core`
 
-Not vendored: original code written for this package (GPL-3.0, same as the
-rest of it). It is the plain-data facade that keeps GTSAM, gtsam_points and
-GLIM headers out of everything above it.
+Not vendored: original code written for this package (BSD-3-Clause, same as
+the rest of it). It is the plain-data facade that keeps GTSAM, gtsam_points
+and GLIM headers out of everything above it.
 
 ---
 
 ## License compatibility
 
-GLIM, gtsam_points and nanoflann are all permissively licensed (MIT /
-BSD-2-Clause) and combine with this package's GPL-3.0 without conflict. This
-is unlike `mola_fast_lio2_wrapper`, whose upstream is GPL-2.0-only; there is
-no equivalent open question here.
+Everything vendored here is permissive -- MIT (GLIM, gtsam_points,
+nlohmann/json) or BSD-2-Clause (nanoflann) -- so none of it constrains this
+package's own BSD-3-Clause terms, and redistribution needs only the copyright
+notices reproduced above and in each subdirectory's `LICENSE`. The external
+build dependencies are permissive too: MRPT and GTSAM are BSD-3-Clause,
+spdlog is MIT, Boost is BSL-1.0, Eigen is MPL-2.0. This is unlike
+`mola_fast_lio2_wrapper`, whose upstream is GPL-2.0-only; there is no
+equivalent open question here.
+
+The one restriction is on the **binaries**, and it comes from MOLA, not from
+`third_party/`: `mola_kernel` and the `mola_input_*` dataset readers (except
+`mola_input_rosbag1`) are GPL-3.0. BSD-3-Clause is GPL-compatible, so the
+combination is fine, but it is a combined work that has to be distributed
+under GPL-3.0. The sources in this repository remain BSD-3-Clause and are
+reusable as such -- `glim_core/` in particular depends on neither MOLA nor
+MRPT.

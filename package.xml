@@ -9,7 +9,7 @@
   <description>MOLA wrapper for the GLIM LiDAR-inertial odometry algorithm</description>
 
   <maintainer email="joseluisblancoc@gmail.com">Jose-Luis Blanco-Claraco</maintainer>
-  <license>GPLv3</license>
+  <license file="LICENSE">BSD-3-Clause</license>
 
   <url type="repository">https://github.com/MOLAorg/mola_glim_wrapper/</url>
 

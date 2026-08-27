@@ -5,7 +5,7 @@
 |_| |_| |_|\___/|_|\__,_| https://github.com/MOLAorg/mola
 
  Copyright (C) 2026, Jose Luis Blanco-Claraco
- SPDX-License-Identifier: GPL-3.0
+ SPDX-License-Identifier: BSD-3-Clause
  See LICENSE for full license information.
 */
 
