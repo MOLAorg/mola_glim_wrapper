@@ -25,8 +25,8 @@
 #include <mola_kernel/interfaces/LocalizationSourceBase.h>
 #include <mola_kernel/interfaces/MapSourceBase.h>
 #include <mrpt/core/WorkerThreadsPool.h>
-#include <mrpt/opengl/CSetOfLines.h>
 #include <mrpt/poses/CPose3DInterpolator.h>
+#include <mrpt/viz/CSetOfLines.h>
 
 #include <atomic>
 #include <glim_core/Types.hpp>
@@ -176,7 +176,7 @@ private:
   } visualization_params_;
 
   /// Only touched from the (single-threaded) LiDAR worker.
-  mrpt::opengl::CSetOfLines::Ptr gl_estimated_path_;
+  mrpt::viz::CSetOfLines::Ptr gl_estimated_path_;
   int map_viz_update_counter_ = 0;
   bool gui_created_ = false;
 

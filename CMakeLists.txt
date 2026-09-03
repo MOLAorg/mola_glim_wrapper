@@ -26,9 +26,9 @@ find_package(GTSAM 4.2 REQUIRED)
 find_package(GTSAM_UNSTABLE 4.2 REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(spdlog REQUIRED)
-find_package(mrpt-maps REQUIRED)
-find_package(mrpt-obs REQUIRED)
-find_package(mrpt-tclap REQUIRED)
+find_package(mrpt_maps REQUIRED)
+find_package(mrpt_obs REQUIRED)
+find_package(CLI11 REQUIRED)
 find_package(mola_kernel REQUIRED)
 find_package(mola_yaml REQUIRED)
 
@@ -95,8 +95,8 @@ mola_add_library(
     # Last:
     module/src/register.cpp
   PUBLIC_LINK_LIBRARIES
-    mrpt::maps
-    mrpt::obs
+    mrpt::mrpt_maps
+    mrpt::mrpt_obs
     mola::mola_kernel
     mola::mola_yaml
   PRIVATE_LINK_LIBRARIES
@@ -107,7 +107,7 @@ mola_add_library(
     glim_core
   CMAKE_DEPENDENCIES
     mola_kernel
-    mrpt-maps
+    mrpt_maps
 )
 
 target_include_directories(${PROJECT_NAME} PUBLIC
@@ -155,8 +155,10 @@ install(
 # -----------------------------------------------------------------------------
 if(DETECTED_ROS2 AND BUILD_TESTING AND ament_cmake_gtest_FOUND)
   ament_add_gtest(test_glim_frame_conventions module/test/test_frame_conventions.cpp)
+  # glim_core for the same reason mola-glim-cli links it: the public header
+  # pulls in its Types.hpp, which needs the Eigen3::Eigen include dirs.
   if(TARGET test_glim_frame_conventions)
-    target_link_libraries(test_glim_frame_conventions ${PROJECT_NAME})
+    target_link_libraries(test_glim_frame_conventions ${PROJECT_NAME} glim_core)
   endif()
 endif()
 
@@ -174,8 +176,12 @@ mola_add_executable(
   SOURCES apps/mola-glim-cli.cpp
   LINK_LIBRARIES
     ${PROJECT_NAME}
-    mrpt::maps
-    mrpt::tclap
+    # For glim_core/Types.hpp, transitively pulled in by the public
+    # GlimOdometry.h: brings the Eigen3::Eigen include dirs along with it
+    # (see third_party/glim_core/CMakeLists.txt).
+    glim_core
+    mrpt::mrpt_maps
+    CLI11::CLI11
 )
 
 if(mola_input_mulran_dataset_FOUND)

@@ -23,9 +23,9 @@
 #include <mrpt/img/color_maps.h>
 #include <mrpt/obs/CObservationIMU.h>
 #include <mrpt/obs/CObservationPointCloud.h>
-#include <mrpt/opengl/CPointCloudColoured.h>
-#include <mrpt/opengl/CSetOfObjects.h>
-#include <mrpt/opengl/stock_objects.h>
+#include <mrpt/viz/CPointCloudColoured.h>
+#include <mrpt/viz/CSetOfObjects.h>
+#include <mrpt/viz/stock_objects.h>
 
 #include <sstream>
 
@@ -335,9 +335,9 @@ void GlimOdometry::updateVisualization(
   }
 
   if (visualization_params_.current_pose_corner_size > 0) {
-    auto glVehicle = mrpt::opengl::CSetOfObjects::Create();
+    auto glVehicle = mrpt::viz::CSetOfObjects::Create();
     glVehicle->insert(
-      mrpt::opengl::stock_objects::CornerXYZ(visualization_params_.current_pose_corner_size));
+      mrpt::viz::stock_objects::CornerXYZ(visualization_params_.current_pose_corner_size));
     glVehicle->setPose(outputPose);
     visualizer_->update_3d_object("glim/vehicle", glVehicle);
   }
@@ -360,12 +360,12 @@ void GlimOdometry::updateVisualization(
 void GlimOdometry::updateVisualizationPath(const mrpt::poses::CPose3D & outputPose)
 {
   if (!visualization_params_.show_trajectory) {
-    visualizer_->update_3d_object("glim/path", mrpt::opengl::CSetOfObjects::Create());
+    visualizer_->update_3d_object("glim/path", mrpt::viz::CSetOfObjects::Create());
     return;
   }
 
   if (!gl_estimated_path_) {
-    gl_estimated_path_ = mrpt::opengl::CSetOfLines::Create();
+    gl_estimated_path_ = mrpt::viz::CSetOfLines::Create();
     gl_estimated_path_->setColor_u8(0x20, 0xc0, 0x40, 0xff);
   }
 
@@ -378,15 +378,15 @@ void GlimOdometry::updateVisualizationPath(const mrpt::poses::CPose3D & outputPo
 
   // Hand a fresh copy to the GUI thread so this (worker-thread-owned) buffer
   // can keep growing without racing with the GUI thread's read.
-  auto pathGrp = mrpt::opengl::CSetOfObjects::Create();
-  pathGrp->insert(mrpt::opengl::CSetOfLines::Create(*gl_estimated_path_));
+  auto pathGrp = mrpt::viz::CSetOfObjects::Create();
+  pathGrp->insert(mrpt::viz::CSetOfLines::Create(*gl_estimated_path_));
   visualizer_->update_3d_object("glim/path", pathGrp);
 }
 
 void GlimOdometry::updateVisualizationScan(const glim_core::OdometryOutput & out)
 {
   if (!visualization_params_.show_scan) {
-    visualizer_->update_3d_object("glim/scan", mrpt::opengl::CSetOfObjects::Create());
+    visualizer_->update_3d_object("glim/scan", mrpt::viz::CSetOfObjects::Create());
     return;
   }
 
@@ -402,14 +402,14 @@ void GlimOdometry::updateVisualizationScan(const glim_core::OdometryOutput & out
   auto pointsMap = toMrptPointsMap(*out.deskewed_points_body);
   pointsMap->changeCoordinatesReference(isometryToPose(out.pose_imu));
 
-  auto glCloud = mrpt::opengl::CPointCloudColoured::Create();
+  auto glCloud = mrpt::viz::CPointCloudColoured::Create();
   glCloud->loadFromPointsMap(pointsMap.get());
   glCloud->setPointSize(visualization_params_.scan_point_size);
 
   const auto bbox = pointsMap->boundingBox();
   glCloud->recolorizeByCoordinate(bbox.min.z, bbox.max.z, 2 /*Z*/, mrpt::img::TColormap::cmJET);
 
-  auto grp = mrpt::opengl::CSetOfObjects::Create();
+  auto grp = mrpt::viz::CSetOfObjects::Create();
   grp->insert(glCloud);
   visualizer_->update_3d_object("glim/scan", grp);
 }
