@@ -441,11 +441,11 @@ public:
     // mrpt::Clock::fromDouble()/TTimeStamp's raw tick count has no epoch
     // offset baked in -- fromDouble(0.0) IS the representable minimum, and
     // sequence-relative timestamps (e.g. KITTI's times.txt) may start at
-    // exactly 0.0. Subtracting a fixed offset without this clamp underflows the underlying unsigned tick count
-    // into a garbage multi-millennium timestamp for that first scan, which
-    // then poisons the estimator's notion of its own start time. The clamp
-    // costs at most the very first scan, which the core drops anyway for
-    // having no IMU strictly before it.
+    // exactly 0.0. Subtracting a fixed offset without this clamp underflows
+    // the underlying unsigned tick count into a garbage multi-millennium
+    // timestamp for that first scan, which then poisons the estimator's notion
+    // of its own start time. The clamp costs at most the very first scan,
+    // which the core drops anyway for having no IMU strictly before it.
     const double lidarT = mrpt::Clock::toDouble(lidarObs->timestamp);
     auto imu = mrpt::obs::CObservationIMU::Create();
     imu->sensorLabel = "imu";
