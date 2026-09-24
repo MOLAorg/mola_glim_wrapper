@@ -1,0 +1,65 @@
+# -----------------------------------------------------------------------------
+# GLIM algorithm parameters for MVSim-generated synthetic LiDAR datasets
+# (e.g. mvsim-dataset-gen output of mvsim_tutorial/
+# demo_lidar_odometry_benchmark.world.xml: Ouster OS1-32 at 10 Hz, 60 m max
+# range, mounted 0.75 m above base_link).
+#
+# Such rawlogs carry no IMU, so run the offline CLI with --synthetic-imu: it
+# interleaves a constant-gravity, zero-angular-rate IMU reading before each
+# scan, and the motion estimate comes entirely from LiDAR registration. The
+# per-point time field is all zeros (instantaneous, undistorted scans), so no
+# deskew takes place.
+#
+# The output trajectory is reported for base_link, to be compared against the
+# dataset's base_link ground truth. See glim-kitti.yaml for the rationale of
+# each parameter, which is shared with it.
+# -----------------------------------------------------------------------------
+
+lidar_sensor_label: "${MOLA_LIDAR_NAME|lidar1}"
+imu_sensor_label: "imu"
+
+imu_pose_in_lidar: "0 0 0 0 0 0"
+baselink2lidar_pose_str: "${MOLA_BASELINK2LIDAR|0 0 0.75 0 0 0}"
+
+fallback_scan_period: 0.1
+
+blind: 0.0
+
+glim_config_path: ${GLIM_CONFIG_PATH|''}
+
+log_level: ${GLIM_LOG_LEVEL|error}
+
+imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
+imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
+imu_int_noise:  ${GLIM_INT_NOISE|0.001}
+imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+
+distance_near_thresh: ${GLIM_NEAR_THRESH|0.5}
+distance_far_thresh:  ${GLIM_FAR_THRESH|60.0}
+use_random_grid_downsampling: ${GLIM_RANDOM_DOWNSAMPLE|true}
+downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
+downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
+downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
+enable_outlier_removal: false
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+
+registration_type: ${GLIM_REGISTRATION|GICP}
+max_iterations:    ${GLIM_MAX_ITERATIONS|8}
+lru_thresh:        100
+target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|1.0}
+ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
+vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|1.0}
+vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
+vgicp_voxelmap_scaling_factor: 2.0
+
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
+smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
+fix_imu_bias:        false
+validate_imu:        true
+save_imu_rate_trajectory: false
+num_threads:         ${GLIM_NUM_THREADS|4}
+
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}

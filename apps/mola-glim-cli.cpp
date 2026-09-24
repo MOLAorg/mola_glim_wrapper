@@ -115,6 +115,8 @@ struct Cli
   bool argKittiSeq_set{false};
 #endif
 
+  bool arg_syntheticImu{false};
+
   CLI::Option * optVerbosity{nullptr};
   CLI::Option * optPlugins{nullptr};
   CLI::Option * optOutPath{nullptr};
@@ -188,6 +190,11 @@ struct Cli
     cmd.add_option(
       "--imu-topic", arg_imuTopic, "Only for rosbag1/rosbag2 input: the IMU topic name.");
 #endif
+
+    cmd.add_flag(
+      "--synthetic-imu", arg_syntheticImu,
+      "Interleave a synthetic, stationary IMU reading before each LiDAR scan, for LiDAR-only "
+      "datasets (KITTI input always does this)");
 
 #if defined(HAVE_MOLA_INPUT_KITTI)
     optKittiSeq = cmd.add_option(
@@ -373,37 +380,36 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_rosbag1(
 }
 #endif
 
-#if defined(HAVE_MOLA_INPUT_KITTI)
-// KittiOdometryDataset carries no IMU stream at all -- the standard KITTI
-// odometry-benchmark sequences never shipped one, unlike KITTI raw/tracking.
-// GLIM is IMU-mandatory (its IMU stream drives both the initial-attitude
-// estimate and the preintegrated factor between consecutive states), so this
-// wraps the real dataset and interleaves synthetic, constant-gravity,
-// zero-angular-rate CObservationIMU entries immediately before each real
-// LiDAR scan.
+// Some datasets carry no IMU stream at all (e.g. KITTI's odometry-benchmark
+// sequences, or LiDAR-only synthetic rawlogs), while GLIM is IMU-mandatory
+// (its IMU stream drives both the initial-attitude estimate and the
+// preintegrated factor between consecutive states). This wraps the real
+// dataset and interleaves synthetic, constant-gravity, zero-angular-rate
+// CObservationIMU entries immediately before each real LiDAR scan.
 // That keeps the propagation clock ticking and lets the gravity/bias
 // initialization converge trivially to "level, stationary" -- the actual
 // motion estimate then comes entirely from LiDAR-only scan-to-map
 // registration.
 //
 // Same technique, same rationale and same constant as mola-dlio-cli's
-// KittiWithSyntheticImu, deliberately: the two wrappers have to feed KITTI
-// identically for a cross-method comparison on it to mean anything.
+// WithSyntheticImu, deliberately: the wrappers have to feed IMU-less datasets
+// identically for a cross-method comparison on them to mean anything.
 //
 // Emitting each synthetic sample as its own dataset timestep, rather than
 // merging them into one CSensoryFrame per timestep, is deliberate:
 // main_odometry()'s loop below only ever takes ONE observation per timestep
 // (pointcloud, else IMU), so a merged frame would silently drop the rest.
+// Real timesteps without a LiDAR scan get empty synthetic slots.
 //
 // MOLA_KITTI_SYNTH_IMU_PER_SCAN raises the number of synthetic samples per
 // scan interval above the one-per-scan default the other wrappers use.
 // Leave it at 1 for any run whose numbers are meant to be compared with
 // theirs; a higher rate only conditions GLIM's preintegration better, it
 // carries no extra information.
-class KittiWithSyntheticImu : public mola::OfflineDatasetSource
+class WithSyntheticImu : public mola::OfflineDatasetSource
 {
 public:
-  explicit KittiWithSyntheticImu(std::shared_ptr<mola::KittiOdometryDataset> inner, int imuPerScan)
+  explicit WithSyntheticImu(std::shared_ptr<mola::OfflineDatasetSource> inner, int imuPerScan)
   : imu_per_scan_(imuPerScan), inner_(std::move(inner))
   {
     ASSERT_(imu_per_scan_ >= 1);
@@ -423,16 +429,19 @@ public:
       return inner_->datasetGetObservations(realIdx);
     }
 
+    auto sf = mrpt::obs::CSensoryFrame::Create();
+
     // Synthetic IMU tick, timestamped just before the scan it precedes.
     const auto realSf = inner_->datasetGetObservations(realIdx);
     const auto lidarObs = realSf->getObservationByClass<mrpt::obs::CObservationPointCloud>();
-    ASSERT_(lidarObs);
+    if (!lidarObs) {
+      return sf;
+    }
 
     // mrpt::Clock::fromDouble()/TTimeStamp's raw tick count has no epoch
     // offset baked in -- fromDouble(0.0) IS the representable minimum, and
-    // KITTI's own sequence-relative timestamps (KittiOdometryDataset reads
-    // them straight from times.txt) start at exactly 0.0. Subtracting a fixed
-    // offset without this clamp underflows the underlying unsigned tick count
+    // sequence-relative timestamps (e.g. KITTI's times.txt) may start at
+    // exactly 0.0. Subtracting a fixed offset without this clamp underflows the underlying unsigned tick count
     // into a garbage multi-millennium timestamp for that first scan, which
     // then poisons the estimator's notion of its own start time. The clamp
     // costs at most the very first scan, which the core drops anyway for
@@ -454,7 +463,6 @@ public:
     imu->set(mrpt::obs::IMU_WY, 0.0);
     imu->set(mrpt::obs::IMU_WZ, 0.0);
 
-    auto sf = mrpt::obs::CSensoryFrame::Create();
     sf->insert(imu);
     return sf;
   }
@@ -471,12 +479,24 @@ private:
   // FastLio2Core's own gravity initialization expects.
   static constexpr double kGravity = 9.80665;
 
-  /// KITTI's Velodyne runs at 10 Hz.
+  /// Assumed LiDAR scan period (10 Hz, as KITTI's Velodyne).
   static constexpr double kScanPeriod = 0.1;
 
   int imu_per_scan_ = 1;
-  std::shared_ptr<mola::KittiOdometryDataset> inner_;
+  std::shared_ptr<mola::OfflineDatasetSource> inner_;
 };
+
+std::shared_ptr<WithSyntheticImu> with_synthetic_imu(
+  std::shared_ptr<mola::OfflineDatasetSource> inner)
+{
+  int imuPerScan = 1;
+  if (const char * e = ::getenv("MOLA_KITTI_SYNTH_IMU_PER_SCAN"); e != nullptr) {
+    imuPerScan = std::max(1, std::atoi(e));
+  }
+  return std::make_shared<WithSyntheticImu>(std::move(inner), imuPerScan);
+}
+
+#if defined(HAVE_MOLA_INPUT_KITTI)
 
 std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti(
   const std::string & kittiSeqNumber, const mrpt::system::VerbosityLevel logLevel)
@@ -500,12 +520,7 @@ std::shared_ptr<mola::OfflineDatasetSource> dataset_from_kitti(
 
   o->initialize(cfg);
 
-  int imuPerScan = 1;
-  if (const char * e = ::getenv("MOLA_KITTI_SYNTH_IMU_PER_SCAN"); e != nullptr) {
-    imuPerScan = std::max(1, std::atoi(e));
-  }
-
-  return std::make_shared<KittiWithSyntheticImu>(o, imuPerScan);
+  return with_synthetic_imu(o);
 }
 #endif
 
@@ -613,6 +628,10 @@ int main_odometry(Cli & cli)
     THROW_EXCEPTION("At least one of the dataset input CLI flags must be defined. Use --help.");
   }
   ASSERT_(dataset);
+
+  if (cli.arg_syntheticImu && !std::dynamic_pointer_cast<WithSyntheticImu>(dataset)) {
+    dataset = with_synthetic_imu(dataset);
+  }
 
   // Save GT, if available:
   if (cli.arg_outPath_set && dataset->hasGroundTruthTrajectory()) {

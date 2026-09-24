@@ -236,7 +236,9 @@ rotated by the estimated attitude.
 - **KITTI has no IMU**, so `--input-kitti-seq` wraps the dataset in a
   decorator that synthesizes a constant-gravity, zero-rate IMU sample before
   each scan — the same technique, constant and rate as the DLIO and Fast-LIO2
-  wrappers, so the methods are fed identically.
+  wrappers, so the methods are fed identically. Other LiDAR-only inputs
+  (e.g. MVSim synthetic rawlogs, see `pipelines/glim-mvsim.yaml`) get the
+  same decorator with `--synthetic-imu`.
   `MOLA_KITTI_SYNTH_IMU_PER_SCAN=N` raises the rate; measured on kitti-04 it
   makes things slightly worse (0.197 m at N=10 against 0.182 m at N=1) and
   breaks that comparability, so leave it alone unless you are studying it.
