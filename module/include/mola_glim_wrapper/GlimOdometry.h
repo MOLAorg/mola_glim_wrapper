@@ -133,6 +133,13 @@ private:
   /// timestamp channel.
   double fallback_scan_period_ = 0.1;
 
+  /// Treat every point of a scan as taken at the observation timestamp, i.e.
+  /// disable the per-point de-skew even when the cloud carries a timestamp
+  /// channel. For streams that a dataset has already motion-compensated but
+  /// whose per-point times still span the sweep, de-skewing them again
+  /// distorts the geometry by the platform's motion.
+  bool ignore_point_timestamps_ = false;
+
   /// Near-range cut applied before handing the scan to GLIM, in addition to
   /// GLIM's own `distance_near_thresh`; kept for parity with the other
   /// wrappers' `blind` parameter, and 0 (disabled) by default.

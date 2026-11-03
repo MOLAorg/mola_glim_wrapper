@@ -116,8 +116,10 @@ void GlimOdometry::initialize_frontend(const Yaml & cfg)
   YAML_LOAD_OPT(baselink2lidar_pose_str, std::string);
   baselink_pose_of_lidar_ = parsePose6D(baselink2lidar_pose_str);
 
-  YAML_LOAD_OPT(fallback_scan_period_, double);
-  YAML_LOAD_OPT(blind_, double);
+  // Member form: the YAML keys carry no trailing underscore.
+  YAML_LOAD_MEMBER_OPT(fallback_scan_period, double);
+  YAML_LOAD_MEMBER_OPT(blind, double);
+  YAML_LOAD_MEMBER_OPT(ignore_point_timestamps, bool);
 
   YAML_LOAD_OPT3(core_cfg_, glim_config_path, std::string);
   YAML_LOAD_OPT3(core_cfg_, log_level, std::string);
@@ -246,7 +248,8 @@ void GlimOdometry::processLidarScan(mrpt::obs::CObservation::ConstPtr o)
     double t_end = 0;
     bool perPointTimes = false;
     const auto cloud =
-      toGlimCloud(*pc, fallback_scan_period_, t_beg, t_end, blind_, &perPointTimes);
+      toGlimCloud(
+        *pc, fallback_scan_period_, t_beg, t_end, blind_, &perPointTimes, ignore_point_timestamps_);
 
     // Which of the two per-point clocks is in use decides whether GLIM's
     // deskewing sees the real intra-scan geometry or a synthesized one, so

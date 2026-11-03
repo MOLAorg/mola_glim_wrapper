@@ -1,0 +1,96 @@
+# -----------------------------------------------------------------------------
+# GLIM algorithm parameters, for the GrandTour dataset
+# (Hesai Pandar LiDAR + STIM320 / ADIS16475 IMU, on a legged robot carrying the
+# "Boxi" sensor payload).
+#
+# Starting point is glim-oxford-spires.yaml with the extrinsics replaced. No
+# GrandTour-specific retuning has been done, deliberately: the first number
+# this file produces is the like-for-like cross-method reference against the
+# Fast-LIO2 and DLIO wrappers' grand-tour pipelines, which are in the same
+# unretuned state.
+#
+# Only GLIM's odometry stage runs: its sub-mapping / global-mapping stages
+# (loop closure + global optimization) are deliberately not instantiated, so
+# these numbers stay comparable with the other LiDAR-inertial ODOMETRY
+# wrappers rather than with a full SLAM system.
+# -----------------------------------------------------------------------------
+
+# T_lidar_imu: pose of the IMU frame wrt the LiDAR frame, GLIM's own
+# `T_lidar_imu` convention, uninverted. The default is the ADIS16475
+# (/boxi/adis/imu). The dataset profile selects the STIM320 (/boxi/stim320/imu)
+# whenever its bags are present, and that IMU sits in a different frame, so the
+# caller must set GRANDTOUR_IMU_POSE_IN_LIDAR to match the IMU topic it feeds.
+# Both values come from the dataset's own /tf_static chain
+# (box_base -> hesai_lidar / adis16475_imu / stim320_imu):
+#   ADIS16475: -0.025834 0.109043 -0.091543 0.753505 -0.281543 -0.144080
+#   STIM320:    0.025853 0.016480 -0.171397 -90.222606 -0.153164 -0.003319
+imu_pose_in_lidar: ${GRANDTOUR_IMU_POSE_IN_LIDAR|-0.025834 0.109043 -0.091543 0.753505 -0.281543 -0.144080}
+
+# T_base_lidar: pose of the LiDAR frame wrt the `base` frame, which is what
+# this dataset's odometry is expected to report and what its ground truth is
+# referred to (same value as fastlio2-grandtour.yaml, composed from /tf_static).
+baselink2lidar_pose_str: "0.378927 0.006448 0.293116 89.636850 -0.671173 0.042510"
+
+lidar_sensor_label: "lidar"
+imu_sensor_label: "imu"
+
+# Fallback only: the "_undist" PointCloud2 streams carry per-point timestamps.
+fallback_scan_period: 0.1
+
+# The "_undist" stream is already motion-compensated by the dataset, but its
+# per-point timestamps still span the sweep. De-skewing it a second time
+# distorts the scan by the platform's own motion (measured on eth-1 against
+# the RTK-INS reference: a walking robot turns a 0.03 m APE into 0.86 m), so
+# every point is taken at the observation time instead. Set it to false for
+# the raw "<mission>_hesai.bag" stream, which needs the de-skew.
+ignore_point_timestamps: ${GRANDTOUR_IGNORE_POINT_TIMESTAMPS|true}
+
+# Near-range cut applied by the wrapper before GLIM sees the scan. Left at 0
+# because GLIM has its own `distance_near_thresh` below.
+blind: 0.0
+
+# --- GLIM's own JSON config directory ---
+glim_config_path: ${GLIM_CONFIG_PATH|''}
+log_level: ${GLIM_LOG_LEVEL|error}
+
+# --- IMU noise (generic MEMS-grade values, as in the sibling pipelines) ---
+imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
+imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
+imu_int_noise:  ${GLIM_INT_NOISE|0.001}
+imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+
+# --- Preprocessing ---
+# The payload sits on a walking robot, so the near field holds the machine's
+# own moving legs; 1.0 m is the cut the other wrappers use on this dataset.
+distance_near_thresh: ${GLIM_NEAR_THRESH|1.0}
+distance_far_thresh:  ${GLIM_FAR_THRESH|150.0}
+use_random_grid_downsampling: ${GLIM_RANDOM_DOWNSAMPLE|true}
+downsample_resolution: ${GLIM_DOWNSAMPLE_RES|1.0}
+downsample_target:     ${GLIM_DOWNSAMPLE_TARGET|10000}
+downsample_rate:       ${GLIM_DOWNSAMPLE_RATE|0.1}
+enable_outlier_removal: false
+k_correspondences:     ${GLIM_K_CORRESPONDENCES|10}
+
+# --- Registration ---
+registration_type: ${GLIM_REGISTRATION|GICP}
+max_iterations:    ${GLIM_MAX_ITERATIONS|8}
+lru_thresh:        100
+target_downsampling_rate: ${GLIM_TARGET_DOWNSAMPLE_RATE|0.1}
+ivox_resolution:   ${GLIM_IVOX_RESOLUTION|0.5}
+ivox_min_dist:     ${GLIM_IVOX_MIN_DIST|0.1}
+vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|0.5}
+vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
+vgicp_voxelmap_scaling_factor: 2.0
+
+# --- Estimator ---
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
+smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
+fix_imu_bias:        false
+validate_imu:        true
+save_imu_rate_trajectory: false
+num_threads:         ${GLIM_NUM_THREADS|4}
+
+# --- Estimated trajectory output ---
+save_trajectory_to_file: ${MOLA_SAVE_TRAJECTORY|false}
+trajectory_output_file: ${MOLA_TUM_TRAJECTORY_OUTPUT|'estimated_trajectory.tum'}
