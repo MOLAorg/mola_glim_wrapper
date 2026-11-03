@@ -27,7 +27,8 @@ namespace mola
 /** See the .cpp file for the full documentation of the conversion logic. */
 glim_core::LidarPointVector toGlimCloud(
   const mrpt::obs::CObservationPointCloud & obs, double fallback_scan_period, double & t_beg,
-  double & t_end, double blind = 0.0, bool * usedPerPointTimestamps = nullptr);
+  double & t_end, double blind = 0.0, bool * usedPerPointTimestamps = nullptr,
+  bool ignorePointTimestamps = false);
 
 glim_core::ImuSample toGlimImu(const mrpt::obs::CObservationIMU & obs);
 
