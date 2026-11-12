@@ -24,8 +24,8 @@
 
   <depend>eigen</depend>
   <depend>gtsam</depend>
-  <depend>libboost-dev</depend>
-  <depend>libspdlog-dev</depend>
+  <depend>boost</depend>
+  <depend>spdlog</depend>
 
   <!-- dataset input sources (all are actually optional) -->
   <depend>mola_input_mulran_dataset</depend>
