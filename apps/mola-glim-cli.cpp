@@ -694,6 +694,9 @@ int main_odometry(Cli & cli)
     }
   }
 
+  // Scans whose sweep the IMU stream does not fully cover (the last one).
+  glim->flushPendingScans();
+
   std::cout << "\nDone. Dataset entries processed: " << lastDatasetEntry
             << ", LiDAR scans fed: " << nLidarFed << "\n";
 

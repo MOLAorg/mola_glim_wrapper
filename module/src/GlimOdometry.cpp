@@ -27,6 +27,8 @@
 #include <mrpt/viz/CSetOfObjects.h>
 #include <mrpt/viz/stock_objects.h>
 
+#include <algorithm>
+#include <limits>
 #include <sstream>
 
 #include "GlimOdometry_Adapters.h"
@@ -60,6 +62,10 @@ mrpt::poses::CPose3D isometryToPose(const Eigen::Isometry3d & iso)
   }
   return mrpt::poses::CPose3D(m);
 }
+
+/// Longest time [s] a scan waits for the IMU samples that cover its sweep,
+/// measured on the sensor clock, before it is processed anyway.
+constexpr double kMaxImuWaitSeconds = 0.5;
 
 Eigen::Isometry3d poseToIsometry(const mrpt::poses::CPose3D & p)
 {
@@ -224,8 +230,16 @@ void GlimOdometry::onImuObservation(const mrpt::obs::CObservation::ConstPtr & o)
 
   // Cheap: run synchronously. IMU is the deskew and propagation clock, it
   // must never be dropped, not even in live/online mode.
-  auto lck = mrpt::lockHelper(core_mtx_);
-  core_->addImuSample(toGlimImu(*imu));
+  const double t = mrpt::Clock::toDouble(imu->timestamp);
+  {
+    auto lck = mrpt::lockHelper(core_mtx_);
+    core_->addImuSample(toGlimImu(*imu));
+  }
+  {
+    auto lck = mrpt::lockHelper(pending_mtx_);
+    last_imu_time_ = std::max(last_imu_time_, t);
+  }
+  dispatchReadyScans(t);
 }
 
 void GlimOdometry::onLidarObservation(const mrpt::obs::CObservation::ConstPtr & o)
@@ -234,22 +248,80 @@ void GlimOdometry::onLidarObservation(const mrpt::obs::CObservation::ConstPtr & 
     return;
   }
 
-  tasks_in_flight_++;
-  auto fut = worker_lidar_.enqueue(&GlimOdometry::processLidarScan, this, o);
-  (void)fut;
+  auto pc = std::dynamic_pointer_cast<const mrpt::obs::CObservationPointCloud>(o);
+  if (!pc) {
+    return;
+  }
+
+  // GLIM de-skews a scan with the IMU samples that span it, so it must not
+  // see the scan before they arrive: a scan stamped at the start of its
+  // sweep would otherwise be de-skewed with no IMU data at all.
+  {
+    auto lck = mrpt::lockHelper(pending_mtx_);
+    pending_scans_.emplace_back(scanEndTime(*pc, ignore_point_timestamps_), o);
+  }
+  dispatchReadyScans(mrpt::Clock::toDouble(o->timestamp));
+}
+
+void GlimOdometry::dispatchReadyScans(double now)
+{
+  auto lck = mrpt::lockHelper(pending_mtx_);
+  while (!pending_scans_.empty()) {
+    const double tEnd = pending_scans_.front().first;
+    const bool covered = tEnd <= last_imu_time_;
+    const bool noImu = last_imu_time_ == -std::numeric_limits<double>::infinity();
+    if (!covered && !noImu && now - tEnd < kMaxImuWaitSeconds) {
+      break;
+    }
+    tasks_in_flight_++;
+    auto fut =
+      worker_lidar_.enqueue(&GlimOdometry::processLidarScan, this, pending_scans_.front().second);
+    (void)fut;
+    pending_scans_.pop_front();
+  }
+}
+
+void GlimOdometry::flushPendingScans()
+{
+  for (;;) {
+    mrpt::obs::CObservation::ConstPtr o;
+    {
+      auto lck = mrpt::lockHelper(pending_mtx_);
+      if (pending_scans_.empty()) {
+        return;
+      }
+      o = pending_scans_.front().second;
+      pending_scans_.pop_front();
+    }
+    tasks_in_flight_++;
+    processLidarScan(o);
+  }
 }
 
 void GlimOdometry::processLidarScan(mrpt::obs::CObservation::ConstPtr o)
 {
-  MRPT_TRY_START
+  // On the worker thread an exception would be lost in the discarded future:
+  // report it, and always release the in-flight count, or isBusy() would
+  // stay true forever.
+  try {
+    processLidarScanImpl(o);
+  } catch (const std::exception & e) {
+    MRPT_LOG_ERROR_STREAM("Error processing a LiDAR scan: " << e.what());
+  } catch (...) {
+    MRPT_LOG_ERROR("Unknown error processing a LiDAR scan");
+  }
+  tasks_in_flight_--;
+}
+
+void GlimOdometry::processLidarScanImpl(const mrpt::obs::CObservation::ConstPtr & o)
+{
   auto pc = std::dynamic_pointer_cast<const mrpt::obs::CObservationPointCloud>(o);
   if (pc && core_) {
     double t_beg = 0;
     double t_end = 0;
     bool perPointTimes = false;
-    const auto cloud =
-      toGlimCloud(
-        *pc, fallback_scan_period_, t_beg, t_end, blind_, &perPointTimes, ignore_point_timestamps_);
+    const auto cloud = toGlimCloud(
+      *pc, fallback_scan_period_, t_beg, t_end, blind_, &perPointTimes, ignore_point_timestamps_);
 
     // Which of the two per-point clocks is in use decides whether GLIM's
     // deskewing sees the real intra-scan geometry or a synthesized one, so
@@ -272,8 +344,6 @@ void GlimOdometry::processLidarScan(mrpt::obs::CObservation::ConstPtr o)
       publishOutput(out);
     }
   }
-  tasks_in_flight_--;
-  MRPT_TRY_END
 }
 
 void GlimOdometry::publishOutput(const glim_core::OdometryOutput & out)

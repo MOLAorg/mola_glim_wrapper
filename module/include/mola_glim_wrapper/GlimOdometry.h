@@ -29,10 +29,13 @@
 #include <mrpt/viz/CSetOfLines.h>
 
 #include <atomic>
+#include <deque>
 #include <glim_core/Types.hpp>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <regex>
+#include <utility>
 
 namespace glim_core
 {
@@ -79,6 +82,10 @@ public:
    * Polled by `mola-glim-cli` to guarantee no scan is ever dropped. */
   bool isBusy() const;
 
+  /** Processes the scans still waiting for IMU coverage, on the caller's
+   * thread. For the end of an offline run, once isBusy() is false. */
+  void flushPendingScans();
+
   /** Trajectory accumulated so far, in the output frame (`base_link`, or the
    * LiDAR frame when `baselink2lidar_pose_str` is left at identity). */
   mrpt::poses::CPose3DInterpolator estimatedTrajectory() const;
@@ -103,7 +110,9 @@ protected:
 private:
   void onLidarObservation(const mrpt::obs::CObservation::ConstPtr & o);
   void onImuObservation(const mrpt::obs::CObservation::ConstPtr & o);
+  void dispatchReadyScans(double now);
   void processLidarScan(mrpt::obs::CObservation::ConstPtr o);
+  void processLidarScanImpl(const mrpt::obs::CObservation::ConstPtr & o);
   void publishOutput(const glim_core::OdometryOutput & out);
 
   /// Drains `worker_lidar_` and, if requested, writes the accumulated
@@ -151,6 +160,12 @@ private:
   /// GLIM's estimator is not internally synchronized, and IMU samples arrive
   /// on the caller's thread while scans run on the worker below.
   std::mutex core_mtx_;
+
+  /// Scans waiting for the IMU samples up to their end time, with that time.
+  std::deque<std::pair<double, mrpt::obs::CObservation::ConstPtr>> pending_scans_;
+  /// Timestamp of the newest IMU sample fed to GLIM.
+  double last_imu_time_ = -std::numeric_limits<double>::infinity();
+  std::mutex pending_mtx_;
 
   mrpt::WorkerThreadsPool worker_lidar_{1, mrpt::WorkerThreadsPool::POLICY_DROP_OLD, "glim_lidar"};
   std::atomic_int tasks_in_flight_{0};

@@ -30,6 +30,11 @@ glim_core::LidarPointVector toGlimCloud(
   double & t_end, double blind = 0.0, bool * usedPerPointTimestamps = nullptr,
   bool ignorePointTimestamps = false);
 
+/** Absolute time of the last point of a scan, with the same conventions as
+ * toGlimCloud(): the observation timestamp plus the largest per-point time
+ * offset, or the observation timestamp itself without per-point times. */
+double scanEndTime(const mrpt::obs::CObservationPointCloud & obs, bool ignorePointTimestamps);
+
 glim_core::ImuSample toGlimImu(const mrpt::obs::CObservationIMU & obs);
 
 mrpt::maps::CPointsMap::Ptr toMrptPointsMap(const glim_core::XYZIPointVector & points);

@@ -103,6 +103,8 @@ makes it lossless.
 
 `mola-glim-cli` defaults to `--num-threads 1`, and at one thread two runs of
 one configuration produce **byte-identical** output.
+This holds for runs that converge: three one-thread runs of a sequence where
+GLIM diverges gave three different trajectories.
 
 Above one thread they do not. GLIM's random-grid downsampling draws from a
 per-thread RNG inside an OpenMP loop with a dynamic schedule and appends the

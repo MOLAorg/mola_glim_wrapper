@@ -152,6 +152,20 @@ LidarPointVector toGlimCloud(
   return out;
 }
 
+double scanEndTime(const mrpt::obs::CObservationPointCloud & obs, bool ignorePointTimestamps)
+{
+  const double obsTime = mrpt::Clock::toDouble(obs.timestamp);
+  if (!obs.pointcloud || ignorePointTimestamps) {
+    return obsTime;
+  }
+  const auto * ts =
+    obs.pointcloud->getPointsBufferRef_float_field(mrpt::maps::CPointsMap::POINT_FIELD_TIMESTAMP);
+  if (!ts || ts->empty() || ts->size() != obs.pointcloud->size()) {
+    return obsTime;
+  }
+  return obsTime + static_cast<double>(*std::max_element(ts->begin(), ts->end()));
+}
+
 glim_core::ImuSample toGlimImu(const mrpt::obs::CObservationIMU & obs)
 {
   glim_core::ImuSample s;
