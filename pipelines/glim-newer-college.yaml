@@ -18,7 +18,7 @@
 #
 # Every key below is applied on top of the JSON in `glim-config/`, which is
 # where the handful of GLIM parameters with no programmatic path in still
-# live (crop box, initialization window, marginal covariances).
+# live (crop box, marginal covariances).
 # -----------------------------------------------------------------------------
 
 # T_lidar_imu: pose of the IMU frame wrt the LiDAR frame, which is GLIM's own
@@ -94,9 +94,9 @@ vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
 initialization_mode: ${GLIM_INIT_MODE|ROBUST}
-# Seconds of ROBUST/LOOSE bootstrapping. Every scan inside this window is
-# consumed without producing a pose, so this is also how much trajectory is
-# missing from the head of every run.
+# Seconds of scan history ROBUST/LOOSE bootstrap from (ROBUST also needs six
+# scans). Scans consumed before that produce no pose, so at least this much
+# trajectory is missing from the head of every run.
 initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false

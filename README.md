@@ -149,7 +149,7 @@ changes nothing.
 | `imu_acc_noise`, `imu_gyro_noise`, `imu_int_noise` | IMU preintegration noises: accelerometer and gyroscope noise densities, integration noise |
 | `imu_bias_noise_acc`, `imu_bias_noise_gyro` | Bias random walks, m/s^3/sqrt(Hz) and rad/s^2/sqrt(Hz), scaled by sqrt(dt) between scans. The deprecated `imu_bias_noise` sets both. |
 | `initialization_mode` | `ROBUST` (scan-matching odometry over an initial window, then gyro bias, gravity, velocity and accelerometer bias), `LOOSE` (deprecated upstream) or `NAIVE` |
-| `initialization_window_size` | Seconds of ROBUST/LOOSE bootstrapping, and therefore how much trajectory is missing from the head of every run |
+| `initialization_window_size` | Minimum span, in seconds, of the scan history ROBUST/LOOSE bootstrap from (ROBUST also needs six scans), and therefore the least trajectory missing from the head of every run |
 | `k_correspondences` | Neighbors used for the per-point covariance estimate |
 | `smoother_lag` | Fixed-lag smoothing window, seconds |
 | `num_threads` | Preprocessing, initial state estimation and per-factor parallelism |
@@ -157,7 +157,9 @@ changes nothing.
 
 Every one is overridable from the environment through the `${VAR|default}`
 placeholders in the shipped pipelines (`GLIM_IVOX_RESOLUTION`,
-`GLIM_NUM_THREADS`, ...).
+`GLIM_NUM_THREADS`, ...). The former `GLIM_BIAS_NOISE` is now
+`GLIM_BIAS_NOISE_ACC` and `GLIM_BIAS_NOISE_GYRO`: upstream changed what the
+value means, so an old setting would not reproduce its old effect anyway.
 
 `MOLA_GLIM_DUMP_ESTIMATED_GRAV=<path>` writes `<time> <gx> <gy> <gz>` per
 scan, the same format the other wrappers' gravity dumps use. GLIM does not
@@ -173,10 +175,11 @@ rotated by the estimated attitude.
   per dataset (sweep the applied offset, or check the nearest-tick residual)
   rather than assuming.
 - **The first few scans produce no pose at all.** The `ROBUST` and `LOOSE`
-  initializations spend `initialization_window_size` seconds bootstrapping
-  the initial attitude and velocity; `OdometryEstimationBase::insert_frame()`
-  returns null throughout. At the shipped 3.0 s that is ~30 scans missing
-  from the head of the trajectory on a 10 Hz sensor.
+  initializations bootstrap the initial attitude and velocity from at least
+  `initialization_window_size` seconds of scans (`ROBUST` also needs six,
+  and IMU data), and `OdometryEstimationBase::insert_frame()` returns null
+  until then. At the shipped 3.0 s that is typically ~30 scans missing from
+  the head of the trajectory on a 10 Hz sensor.
 
   Shortening the window buys the head back and costs accuracy, monotonically.
   Measured on kitti-04 (271 scans) with `LOOSE`, before the single-threaded
@@ -248,6 +251,10 @@ rotated by the estimated attitude.
   `MOLA_KITTI_SYNTH_IMU_PER_SCAN=N` raises the rate; measured on kitti-04 it
   makes things slightly worse (0.197 m at N=10 against 0.182 m at N=1) and
   breaks that comparability, so leave it alone unless you are studying it.
+  Both synthetic-IMU pipelines keep `initialization_mode: LOOSE` rather than
+  upstream's `ROBUST`: with a zero-rate IMU, `ROBUST` takes any turn in its
+  window for a gyro bias (kitti-04 0.208 m against 0.181 m, kitti-07 1.258 m
+  against 0.877 m).
 
 ## License
 

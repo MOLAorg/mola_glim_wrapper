@@ -139,11 +139,12 @@ TEST(GlimCore, ProcessesSyntheticSequence)
 
   EXPECT_EQ(core.scanCount(), static_cast<std::size_t>(nScans));
 
-  // The initial state estimation spends a fixed window bootstrapping the initial
-  // attitude and velocity, and returns no pose at all until it finishes: on a
-  // 10 Hz stream that is the first ~30 scans. What must hold is that once
-  // poses start they never stop.
+  // The initial state estimation bootstraps the initial attitude and velocity
+  // from at least the configured window of scans, and returns no pose at all
+  // until then: on a 10 Hz stream that is the first ~30 scans. What must hold
+  // is that no pose comes earlier, and that once poses start they never stop.
   ASSERT_GE(firstValid, 0);
+  EXPECT_GE(firstValidT - t, cfg.initialization_window_size - 0.5 * kScanPeriod);
   EXPECT_EQ(nValid, lastValid - firstValid + 1);
   EXPECT_GE(nValid, 15);
 

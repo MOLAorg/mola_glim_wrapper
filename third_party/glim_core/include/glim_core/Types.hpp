@@ -117,9 +117,10 @@ struct Config
   /** "ROBUST", "LOOSE" (deprecated upstream) or "NAIVE": how the initial
    * attitude/velocity is bootstrapped. */
   std::string initialization_mode = "ROBUST";
-  /** Seconds of ROBUST/LOOSE bootstrapping before the first pose is produced.
-   * Every scan in this window is consumed and reported as invalid, so it is
-   * also the length of trajectory missing from the head of every run. */
+  /** Minimum span, in seconds, of the scan history ROBUST/LOOSE bootstrap
+   * from (ROBUST also needs six scans). Scans consumed before that are
+   * reported as invalid, so at least this much trajectory is missing from the
+   * head of every run. */
   double initialization_window_size = 3.0;
   double init_pose_damping_scale = 1e10;
 

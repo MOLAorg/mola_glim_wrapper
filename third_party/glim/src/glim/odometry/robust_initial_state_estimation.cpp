@@ -45,6 +45,10 @@ void RobustInitialStateEstimation::set_num_threads(int n) {
   covariance_estimation.reset(new CloudCovarianceEstimation(num_threads));
 }
 
+void RobustInitialStateEstimation::set_imu_integration_params(const IMUIntegrationParams& params) {
+  imu_integration.reset(new IMUIntegration(params));
+}
+
 void RobustInitialStateEstimation::insert_imu(double stamp, const Eigen::Vector3d& linear_acc, const Eigen::Vector3d& angular_vel) {
   imu_integration->insert_imu(stamp, linear_acc, angular_vel);
 }

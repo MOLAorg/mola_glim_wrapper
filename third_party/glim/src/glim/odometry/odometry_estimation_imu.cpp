@@ -96,6 +96,11 @@ OdometryEstimationIMU::OdometryEstimationIMU(std::unique_ptr<OdometryEstimationI
   T_lidar_imu.setIdentity();
   T_imu_lidar.setIdentity();
 
+  IMUIntegrationParams imu_integration_params;
+  imu_integration_params.acc_noise = params->imu_acc_noise;
+  imu_integration_params.gyro_noise = params->imu_gyro_noise;
+  imu_integration_params.int_noise = params->imu_int_noise;
+
   if (!params->estimate_init_state || params->initialization_mode == "NAIVE") {
     auto init_estimation = new NaiveInitialStateEstimation(params->T_lidar_imu, params->imu_bias);
     if (!params->estimate_init_state) {
@@ -106,20 +111,18 @@ OdometryEstimationIMU::OdometryEstimationIMU(std::unique_ptr<OdometryEstimationI
     auto init_estimation = new LooseInitialStateEstimation(params->T_lidar_imu, params->imu_bias);
     init_estimation->set_window_size(params->initialization_window_size);
     init_estimation->set_num_threads(params->num_threads);
+    init_estimation->set_imu_integration_params(imu_integration_params);
     this->init_estimation.reset(init_estimation);
   } else if (params->initialization_mode == "ROBUST") {
     auto init_estimation = new RobustInitialStateEstimation(params->T_lidar_imu);
     init_estimation->set_window_size(params->initialization_window_size);
     init_estimation->set_num_threads(params->num_threads);
+    init_estimation->set_imu_integration_params(imu_integration_params);
     this->init_estimation.reset(init_estimation);
   } else {
     logger->error("unknown initialization mode {}", params->initialization_mode);
   }
 
-  IMUIntegrationParams imu_integration_params;
-  imu_integration_params.acc_noise = params->imu_acc_noise;
-  imu_integration_params.gyro_noise = params->imu_gyro_noise;
-  imu_integration_params.int_noise = params->imu_int_noise;
   imu_integration.reset(new IMUIntegration(imu_integration_params));
   imu_validation.reset(new IMUValidation(logger, params->validate_imu));
   deskewing.reset(new CloudDeskewing);

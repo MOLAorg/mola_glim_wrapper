@@ -77,10 +77,14 @@ vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
 vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
-initialization_mode: ${GLIM_INIT_MODE|ROBUST}
-# Seconds of ROBUST/LOOSE bootstrapping. Every scan inside this window is
-# consumed without producing a pose, so this is also how much trajectory is
-# missing from the head of every run.
+# LOOSE rather than upstream's default ROBUST: the synthetic IMU reports no
+# rotation, so ROBUST fits any turn in its window as a gyro bias, which then
+# seeds the smoother. Measured APE, LOOSE against ROBUST: kitti-04 0.181 m
+# against 0.208 m, kitti-07 0.877 m against 1.258 m.
+initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+# Seconds of scan history ROBUST/LOOSE bootstrap from (ROBUST also needs six
+# scans). Scans consumed before that produce no pose, so at least this much
+# trajectory is missing from the head of every run.
 initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false

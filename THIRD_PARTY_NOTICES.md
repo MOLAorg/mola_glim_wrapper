@@ -34,14 +34,18 @@ the estimation math.
    uses any of this, and this wrapper does not instantiate global mapping.
 
 2. **`include/glim/odometry/odometry_estimation_imu.hpp`,
-   `src/glim/odometry/odometry_estimation_imu.cpp` — IMU preintegration noises
-   exposed on the params struct.** `imu_acc_noise`, `imu_gyro_noise` and
-   `imu_int_noise` were reachable only through `config_sensors.json`, because
-   `OdometryEstimationIMU` constructed a default `IMUIntegrationParams` which
-   read them itself. They are now fields of `OdometryEstimationIMUParams`,
-   defaulted from the same JSON keys with the same fallbacks, and passed
-   explicitly into `IMUIntegration`. Behavior is unchanged for a caller that
-   does not set them; the point is that the MOLA pipeline YAML can.
+   `src/glim/odometry/odometry_estimation_imu.cpp`, and the headers and
+   sources of `LooseInitialStateEstimation` and
+   `RobustInitialStateEstimation` — IMU preintegration noises exposed on the
+   params struct.** `imu_acc_noise`, `imu_gyro_noise` and `imu_int_noise`
+   were reachable only through `config_sensors.json`, because
+   `OdometryEstimationIMU` and both initial state estimators constructed a
+   default `IMUIntegrationParams` which read them itself. They are now fields
+   of `OdometryEstimationIMUParams`, defaulted from the same JSON keys with
+   the same fallbacks, and passed explicitly into the odometry's
+   `IMUIntegration` and, through new `set_imu_integration_params()` methods,
+   into both initializers'. Behavior is unchanged for a caller that does not
+   set them; the point is that the MOLA pipeline YAML can.
 
 3. **`include/glim/odometry/odometry_estimation_imu.hpp`,
    `src/glim/odometry/odometry_estimation_imu.cpp`,

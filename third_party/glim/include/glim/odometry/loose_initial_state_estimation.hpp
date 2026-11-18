@@ -13,6 +13,7 @@ using iVox = IncrementalVoxelMap<FlatContainer>;
 namespace glim {
 
 class IMUIntegration;
+struct IMUIntegrationParams;
 class CloudCovarianceEstimation;
 
 class LooseInitialStateEstimation : public InitialStateEstimation {
@@ -35,6 +36,8 @@ public:
   void set_window_size(double t) { window_size = t; }
   /// Overrides the thread count read from config_odometry.
   void set_num_threads(int n);
+  /// Overrides the IMU noises read from config_sensors.
+  void set_imu_integration_params(const IMUIntegrationParams& params);
 
 private:
 

@@ -41,6 +41,10 @@ void LooseInitialStateEstimation::set_num_threads(int n) {
   covariance_estimation.reset(new CloudCovarianceEstimation(num_threads));
 }
 
+void LooseInitialStateEstimation::set_imu_integration_params(const IMUIntegrationParams& params) {
+  imu_integration.reset(new IMUIntegration(params));
+}
+
 void LooseInitialStateEstimation::insert_frame(const PreprocessedFrame::ConstPtr& raw_frame) {
   if (raw_frame->size() < 50) {
     logger->warn("skip initial state estimation for a frame with too few points ({} points)", raw_frame->size());
