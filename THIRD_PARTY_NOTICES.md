@@ -72,7 +72,13 @@ the estimation math.
    `params->num_threads`, make the one thread count of the params struct
    apply everywhere. Only the thread count changes, not the math.
 
-5. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
+5. **`src/glim/odometry/robust_initial_state_estimation_odom.cpp` — GTSAM
+   4.2 compatibility.** It called `gtsam::NavState::rotation()`, which only
+   exists from GTSAM 4.3, so the file did not compile on distros that ship
+   4.2. It now calls `NavState::attitude()`, which is what 4.3's
+   `rotation()` returns, so behavior is identical.
+
+6. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
    `find_package(gtsam_points ...)` is skipped when the target already exists
    (it does, since this package builds `gtsam_points` first), and the
    dlopen-able estimation-module `.so` loop, the install/export rules and the
@@ -80,7 +86,7 @@ the estimation math.
    package sets. Nothing is gated on it in a standalone build, so the tree
    still builds the way upstream intends.
 
-6. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
+7. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
    (need Iridescence, which is not packaged for this distro and is not built),
    plus `docs/`, `docker/`, `mkdocs.yml` and `package.xml` (this package
    supplies its own).

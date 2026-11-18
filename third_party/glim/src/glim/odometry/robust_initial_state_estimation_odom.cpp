@@ -59,7 +59,7 @@ void RobustInitialStateEstimation::update_odom(const PreprocessedFrame::ConstPtr
     const Eigen::Isometry3d prev_T_odom_imu = prev.second * T_lidar_imu;
     gtsam::NavState prev_state(gtsam::Pose3(prev_T_odom_imu.matrix()), gtsam::Vector3::Zero());
     const auto pred_T_odom_imu = imu_integration->integrated_measurements().predict(prev_state, gtsam::imuBias::ConstantBias());
-    const gtsam::Rot3 pred_R_odom_lidar = pred_T_odom_imu.rotation() * gtsam::Rot3(T_lidar_imu.linear()).inverse();
+    const gtsam::Rot3 pred_R_odom_lidar = pred_T_odom_imu.attitude() * gtsam::Rot3(T_lidar_imu.linear()).inverse();
 
     // Apply only rotation prediction to the initial pose
     T_odom_lidar = gtsam::Pose3(pred_R_odom_lidar, T_odom_lidar.translation());
