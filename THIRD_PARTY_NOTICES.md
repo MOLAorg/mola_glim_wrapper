@@ -9,16 +9,17 @@ to their own files and are reproduced in each subdirectory's `LICENSE`.
 ## `third_party/glim`
 
 - **Upstream:** https://github.com/koide3/glim
-- **Commit copied:** `bba7bf407844cd7db36f4c9a54d58298c9b044f6` (2026-08-18,
-  "Fix normal coloring for odometry scans and keyframes (#321)"), version 1.2.2
+- **Commit copied:** `1a197c999e4865f5cab7c9cd25474128413ebbca` (2026-10-08,
+  "fix build with fmt >= 11 (#326) (#327)"), version 1.2.2
 - **License:** MIT (`third_party/glim/LICENSE`)
 - **Copyright:** (c) 2024 Kenji Koide (koide3), and the GLIM contributors.
   Bundles `thirdparty/json` (nlohmann/json, MIT, (c) 2013-2023 Niels
   Lohmann), kept verbatim.
 
 Vendored by copy rather than as a submodule because it needed the edits
-below. Every change is either a build-integration change or a portability
-fix; none of them touches the estimation math.
+below. Every change is a build-integration change, a portability fix, or
+plumbing that lets the pipeline YAML set a parameter; none of them touches
+the estimation math.
 
 1. **`src/glim/util/serialization.cpp`, `src/glim/util/export_factors.cpp`,
    `src/glim/mapping/global_mapping.cpp`, `include/glim/util/serialization.hpp`
@@ -44,19 +45,34 @@ fix; none of them touches the estimation math.
 
 3. **`include/glim/odometry/odometry_estimation_imu.hpp`,
    `src/glim/odometry/odometry_estimation_imu.cpp`,
-   `include/glim/odometry/loose_initial_state_estimation.hpp` — the LOOSE
+   `include/glim/odometry/loose_initial_state_estimation.hpp`,
+   `include/glim/odometry/robust_initial_state_estimation.hpp` — the
    initialization window exposed on the params struct.** Same shape and same
    reason as the change above: `initialization_window_size` was reachable only
-   through `config_odometry.json`, because `LooseInitialStateEstimation` read
-   it in its own constructor. It is now a field of
-   `OdometryEstimationIMUParams`, defaulted from the same JSON key with the
-   same fallback, and applied through a new
-   `LooseInitialStateEstimation::set_window_size()`. It decides how much
-   trajectory is missing from the head of every run, so it has to be settable
-   from the pipeline YAML; behavior is unchanged for a caller that leaves it
-   alone.
+   through `config_odometry.json`, because `LooseInitialStateEstimation` and
+   `RobustInitialStateEstimation` read it in their own constructors. It is
+   now a field of `OdometryEstimationIMUParams`, defaulted from the same JSON
+   key with the same fallback, and applied through new `set_window_size()`
+   methods on both. It decides how much trajectory is missing from the head
+   of every run, so it has to be settable from the pipeline YAML; behavior is
+   unchanged for a caller that leaves it alone.
 
-4. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
+4. **`include/glim/odometry/loose_initial_state_estimation.hpp`,
+   `src/glim/odometry/loose_initial_state_estimation.cpp`,
+   `include/glim/odometry/robust_initial_state_estimation.hpp`,
+   `src/glim/odometry/robust_initial_state_estimation.cpp`,
+   `src/glim/odometry/odometry_estimation_imu.cpp` — the initial state
+   estimators use the odometry's thread count.** Both read `num_threads`
+   from `config_odometry.json` in their constructors, so their scan matching
+   and covariance estimation ran at the JSON's count whatever the caller set
+   in `OdometryEstimationIMUParams::num_threads`. The scan-matching reduction
+   in `gtsam_points` uses a dynamic OpenMP schedule, so more than one thread
+   makes the summation order, and therefore the bootstrap, vary between
+   runs. New `set_num_threads()` methods, called with
+   `params->num_threads`, make the one thread count of the params struct
+   apply everywhere. Only the thread count changes, not the math.
+
+5. **`CMakeLists.txt` — consumable as an `add_subdirectory()`.**
    `find_package(gtsam_points ...)` is skipped when the target already exists
    (it does, since this package builds `gtsam_points` first), and the
    dlopen-able estimation-module `.so` loop, the install/export rules and the
@@ -64,7 +80,7 @@ fix; none of them touches the estimation math.
    package sets. Nothing is gated on it in a standalone build, so the tree
    still builds the way upstream intends.
 
-5. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
+6. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
    (need Iridescence, which is not packaged for this distro and is not built),
    plus `docs/`, `docker/`, `mkdocs.yml` and `package.xml` (this package
    supplies its own).

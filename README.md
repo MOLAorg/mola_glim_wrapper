@@ -119,9 +119,11 @@ One thread costs about 1.3x wall clock (33.3 s against 25.5 s on kitti-04),
 because GLIM's time is dominated by its serial fixed-lag smoother. Every
 OpenMP pragma in the vendored libraries carries an explicit `num_threads()`
 clause and none reads `OMP_NUM_THREADS`, so the pipeline's `num_threads` is
-the whole control. `--num-threads N` overrides it, an exported
-`GLIM_NUM_THREADS` overrides the default, and the effective value is printed
-at startup so a threaded run and a deterministic one never look alike.
+the whole control. That includes the initial state estimation, which upstream
+runs at the JSON's thread count instead (see `THIRD_PARTY_NOTICES.md`).
+`--num-threads N` overrides it, an exported `GLIM_NUM_THREADS` overrides the
+default, and the effective value is printed at startup so a threaded run and
+a deterministic one never look alike.
 
 The online (`mola-cli`) path keeps whatever the pipeline YAML says, since it
 is already non-reproducible for a different reason: it drops scans under
@@ -131,9 +133,9 @@ load.
 
 The pipeline YAML is the source of truth for everything this wrapper
 exposes; the JSON directory in `glim-config/` supplies the handful of GLIM
-parameters that have no programmatic path in (the crop-box filter, the
-initialization window, marginal covariances). YAML defaults match upstream's
-JSON defaults, so an unset key changes nothing.
+parameters that have no programmatic path in (the crop-box filter, marginal
+covariances). YAML defaults match upstream's JSON defaults, so an unset key
+changes nothing.
 
 | Key | What it is |
 |---|---|
@@ -144,12 +146,13 @@ JSON defaults, so an unset key changes nothing.
 | `vgicp_resolution`, `vgicp_voxelmap_levels` | VGICP target-map resolution |
 | `distance_near_thresh`, `distance_far_thresh` | Range crop |
 | `downsample_resolution`, `downsample_target`, `downsample_rate` | Input downsampling |
-| `imu_acc_noise`, `imu_gyro_noise`, `imu_int_noise`, `imu_bias_noise` | IMU preintegration noises |
-| `initialization_mode` | `LOOSE` (scan-matching bootstrap over an initial window) or `NAIVE` |
-| `initialization_window_size` | Seconds of LOOSE bootstrapping, and therefore how much trajectory is missing from the head of every run |
+| `imu_acc_noise`, `imu_gyro_noise`, `imu_int_noise` | IMU preintegration noises: accelerometer and gyroscope noise densities, integration noise |
+| `imu_bias_noise_acc`, `imu_bias_noise_gyro` | Bias random walks, m/s^3/sqrt(Hz) and rad/s^2/sqrt(Hz), scaled by sqrt(dt) between scans. The deprecated `imu_bias_noise` sets both. |
+| `initialization_mode` | `ROBUST` (scan-matching odometry over an initial window, then gyro bias, gravity, velocity and accelerometer bias), `LOOSE` (deprecated upstream) or `NAIVE` |
+| `initialization_window_size` | Seconds of ROBUST/LOOSE bootstrapping, and therefore how much trajectory is missing from the head of every run |
 | `k_correspondences` | Neighbors used for the per-point covariance estimate |
 | `smoother_lag` | Fixed-lag smoothing window, seconds |
-| `num_threads` | Preprocessing and per-factor parallelism |
+| `num_threads` | Preprocessing, initial state estimation and per-factor parallelism |
 | `glim_config_path` | GLIM's JSON config dir; empty resolves to the installed `glim-config/` |
 
 Every one is overridable from the environment through the `${VAR|default}`
@@ -169,15 +172,16 @@ rotated by the estimated attitude.
   aligned APE mostly absorbs and every relative metric does not. Measure it
   per dataset (sweep the applied offset, or check the nearest-tick residual)
   rather than assuming.
-- **The first few scans produce no pose at all.** `initialization_mode: LOOSE`
-  spends `initialization_window_size` seconds bootstrapping the initial
-  attitude and velocity; `OdometryEstimationBase::insert_frame()` returns null
-  throughout. At the shipped 3.0 s that is ~30 scans missing from the head of
-  the trajectory on a 10 Hz sensor.
+- **The first few scans produce no pose at all.** The `ROBUST` and `LOOSE`
+  initializations spend `initialization_window_size` seconds bootstrapping
+  the initial attitude and velocity; `OdometryEstimationBase::insert_frame()`
+  returns null throughout. At the shipped 3.0 s that is ~30 scans missing
+  from the head of the trajectory on a 10 Hz sensor.
 
   Shortening the window buys the head back and costs accuracy, monotonically.
-  Measured on kitti-04 (271 scans), before the single-threaded default
-  landed, so the pose counts and stamps are exact and the APEs are draws:
+  Measured on kitti-04 (271 scans) with `LOOSE`, before the single-threaded
+  default landed, so the pose counts and stamps are exact and the APEs are
+  draws:
 
   | `initialization_window_size` | poses | first stamp | APE RMSE |
   |---|---|---|---|

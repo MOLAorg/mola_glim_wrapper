@@ -41,7 +41,8 @@ public:
 public:
   // Sensor params;
   bool fix_imu_bias;
-  double imu_bias_noise;
+  double imu_bias_noise_acc;
+  double imu_bias_noise_gyro;
   // Preintegration noises. Defaults come from config_sensors.json, exactly as
   // IMUIntegrationParams reads them; they are held here so that a caller
   // constructing the params struct programmatically can override them too.
@@ -53,9 +54,9 @@ public:
 
   // Init state
   std::string initialization_mode;
-  // Length, in seconds, of the LOOSE-initialization window. Defaults from
-  // config_odometry, exactly as LooseInitialStateEstimation reads it; held
-  // here so a caller constructing the params struct can override it too.
+  // Length, in seconds, of the LOOSE/ROBUST initialization window. Defaults
+  // from config_odometry, exactly as both estimators read it; held here so a
+  // caller constructing the params struct can override it too.
   double initialization_window_size;
   bool estimate_init_state;
   Eigen::Isometry3d init_T_world_imu;

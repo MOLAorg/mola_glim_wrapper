@@ -130,7 +130,15 @@ void GlimOdometry::initialize_frontend(const Yaml & cfg)
   YAML_LOAD_OPT3(core_cfg_, glim_config_path, std::string);
   YAML_LOAD_OPT3(core_cfg_, log_level, std::string);
 
-  YAML_LOAD_OPT3(core_cfg_, imu_bias_noise, double);
+  // Deprecated upstream: sets both bias random walks, and the specific keys
+  // below take precedence over it.
+  if (cfg.has("imu_bias_noise")) {
+    const double imu_bias_noise = cfg["imu_bias_noise"].as<double>();
+    core_cfg_.imu_bias_noise_acc = imu_bias_noise;
+    core_cfg_.imu_bias_noise_gyro = imu_bias_noise;
+  }
+  YAML_LOAD_OPT3(core_cfg_, imu_bias_noise_acc, double);
+  YAML_LOAD_OPT3(core_cfg_, imu_bias_noise_gyro, double);
   YAML_LOAD_OPT3(core_cfg_, imu_acc_noise, double);
   YAML_LOAD_OPT3(core_cfg_, imu_gyro_noise, double);
   YAML_LOAD_OPT3(core_cfg_, imu_int_noise, double);

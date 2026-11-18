@@ -18,6 +18,7 @@
 #include <glim/common/cloud_covariance_estimation.hpp>
 #include <glim/odometry/initial_state_estimation.hpp>
 #include <glim/odometry/loose_initial_state_estimation.hpp>
+#include <glim/odometry/robust_initial_state_estimation.hpp>
 #include <glim/odometry/callbacks.hpp>
 
 #ifdef GTSAM_USE_TBB
@@ -36,10 +37,23 @@ OdometryEstimationIMUParams::OdometryEstimationIMUParams() {
   // sensor config
   Config sensor_config(GlobalConfig::get_config_path("config_sensors"));
   T_lidar_imu = sensor_config.param<Eigen::Isometry3d>("sensors", "T_lidar_imu", Eigen::Isometry3d::Identity());
-  imu_bias_noise = sensor_config.param<double>("sensors", "imu_bias_noise", 1e-3);
+
+  imu_bias_noise_acc = 1e-4;
+  imu_bias_noise_gyro = 1e-5;
+  if (sensor_config.has_param("sensors", "imu_bias_noise")) {
+    imu_bias_noise_acc = imu_bias_noise_gyro = sensor_config.param<double>("sensors", "imu_bias_noise", 1e-4);
+  }
+  if (sensor_config.has_param("sensors", "imu_bias_noise_acc")) {
+    imu_bias_noise_acc = sensor_config.param<double>("sensors", "imu_bias_noise_acc", 1e-4);
+  }
+  if (sensor_config.has_param("sensors", "imu_bias_noise_gyro")) {
+    imu_bias_noise_gyro = sensor_config.param<double>("sensors", "imu_bias_noise_gyro", 1e-5);
+  }
+
   imu_acc_noise = sensor_config.param<double>("sensors", "imu_acc_noise", 0.01);
   imu_gyro_noise = sensor_config.param<double>("sensors", "imu_gyro_noise", 0.001);
   imu_int_noise = sensor_config.param<double>("sensors", "imu_int_noise", 0.001);
+
   auto bias = sensor_config.param<std::vector<double>>("sensors", "imu_bias");
   if (bias && bias->size() == 6) {
     imu_bias = Eigen::Map<const Eigen::Matrix<double, 6, 1>>(bias->data());
@@ -52,7 +66,7 @@ OdometryEstimationIMUParams::OdometryEstimationIMUParams() {
 
   fix_imu_bias = config.param<bool>("odometry_estimation", "fix_imu_bias", false);
 
-  initialization_mode = config.param<std::string>("odometry_estimation", "initialization_mode", "LOOSE");
+  initialization_mode = config.param<std::string>("odometry_estimation", "initialization_mode", "ROBUST");
   initialization_window_size = config.param<double>("odometry_estimation", "initialization_window_size", 1.0);
   const auto init_T_world_imu = config.param<Eigen::Isometry3d>("odometry_estimation", "init_T_world_imu");
   const auto init_v_world_imu = config.param<Eigen::Vector3d>("odometry_estimation", "init_v_world_imu");
@@ -91,6 +105,12 @@ OdometryEstimationIMU::OdometryEstimationIMU(std::unique_ptr<OdometryEstimationI
   } else if (params->initialization_mode == "LOOSE") {
     auto init_estimation = new LooseInitialStateEstimation(params->T_lidar_imu, params->imu_bias);
     init_estimation->set_window_size(params->initialization_window_size);
+    init_estimation->set_num_threads(params->num_threads);
+    this->init_estimation.reset(init_estimation);
+  } else if (params->initialization_mode == "ROBUST") {
+    auto init_estimation = new RobustInitialStateEstimation(params->T_lidar_imu);
+    init_estimation->set_window_size(params->initialization_window_size);
+    init_estimation->set_num_threads(params->num_threads);
     this->init_estimation.reset(init_estimation);
   } else {
     logger->error("unknown initialization mode {}", params->initialization_mode);
@@ -208,6 +228,7 @@ EstimationFrame::ConstPtr OdometryEstimationIMU::insert_frame(const Preprocessed
     create_frame(new_frame);
 
     Callbacks::on_new_frame(new_frame);
+    Callbacks::on_update_new_frame(new_frame);
     frames.push_back(new_frame);
 
     // Initialize the estimator
@@ -274,8 +295,12 @@ EstimationFrame::ConstPtr OdometryEstimationIMU::insert_frame(const Preprocessed
   new_values.insert(B(current), last_imu_bias);
 
   // Constant IMU bias assumption
-  new_factors.add(
-    gtsam::BetweenFactor<gtsam::imuBias::ConstantBias>(B(last), B(current), gtsam::imuBias::ConstantBias(), gtsam::noiseModel::Isotropic::Sigma(6, params->imu_bias_noise)));
+  const double sqrt_dt = std::sqrt(std::max(raw_frame->stamp - last_stamp, 0.01));
+  gtsam::Vector6 bias_sigmas;
+  bias_sigmas << gtsam::Vector3::Constant(params->imu_bias_noise_acc * sqrt_dt), gtsam::Vector3::Constant(params->imu_bias_noise_gyro * sqrt_dt);
+  const auto bias_noise = gtsam::noiseModel::Diagonal::Sigmas(bias_sigmas);
+
+  new_factors.add(gtsam::BetweenFactor<gtsam::imuBias::ConstantBias>(B(last), B(current), gtsam::imuBias::ConstantBias(), bias_noise));
   if (params->fix_imu_bias) {
     new_factors.add(gtsam::PriorFactor<gtsam::imuBias::ConstantBias>(B(current), gtsam::imuBias::ConstantBias(params->imu_bias), gtsam::noiseModel::Isotropic::Precision(6, 1e3)));
   }

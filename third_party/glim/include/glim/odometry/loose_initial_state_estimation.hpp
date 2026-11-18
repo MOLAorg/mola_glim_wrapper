@@ -33,6 +33,8 @@ private:
 public:
   /// Overrides the window length read from config_odometry.
   void set_window_size(double t) { window_size = t; }
+  /// Overrides the thread count read from config_odometry.
+  void set_num_threads(int n);
 
 private:
 

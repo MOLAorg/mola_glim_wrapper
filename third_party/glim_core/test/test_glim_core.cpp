@@ -139,7 +139,7 @@ TEST(GlimCore, ProcessesSyntheticSequence)
 
   EXPECT_EQ(core.scanCount(), static_cast<std::size_t>(nScans));
 
-  // The LOOSE initialization spends a fixed window bootstrapping the initial
+  // The initial state estimation spends a fixed window bootstrapping the initial
   // attitude and velocity, and returns no pose at all until it finishes: on a
   // 10 Hz stream that is the first ~30 scans. What must hold is that once
   // poses start they never stop.

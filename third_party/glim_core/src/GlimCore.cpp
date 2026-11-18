@@ -103,7 +103,8 @@ GlimCore::GlimCore(const Config & cfg) : impl_(std::make_unique<Impl>())
 
   glim::OdometryEstimationCPUParams op;
   op.T_lidar_imu = cfg.T_lidar_imu;
-  op.imu_bias_noise = cfg.imu_bias_noise;
+  op.imu_bias_noise_acc = cfg.imu_bias_noise_acc;
+  op.imu_bias_noise_gyro = cfg.imu_bias_noise_gyro;
   op.imu_acc_noise = cfg.imu_acc_noise;
   op.imu_gyro_noise = cfg.imu_gyro_noise;
   op.imu_int_noise = cfg.imu_int_noise;

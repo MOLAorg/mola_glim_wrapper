@@ -36,6 +36,11 @@ LooseInitialStateEstimation::LooseInitialStateEstimation(const Eigen::Isometry3d
 
 LooseInitialStateEstimation::~LooseInitialStateEstimation() {}
 
+void LooseInitialStateEstimation::set_num_threads(int n) {
+  num_threads = n;
+  covariance_estimation.reset(new CloudCovarianceEstimation(num_threads));
+}
+
 void LooseInitialStateEstimation::insert_frame(const PreprocessedFrame::ConstPtr& raw_frame) {
   if (raw_frame->size() < 50) {
     logger->warn("skip initial state estimation for a frame with too few points ({} points)", raw_frame->size());
