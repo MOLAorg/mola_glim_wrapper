@@ -76,7 +76,10 @@ struct Config
    * which computes `T_world_imu = T_world_lidar * T_lidar_imu`. */
   Eigen::Isometry3d T_lidar_imu = Eigen::Isometry3d::Identity();
 
-  double imu_bias_noise = 1e-5;
+  /** Bias random walks, accelerometer [m/s^3/sqrt(Hz)] and gyroscope
+   * [rad/s^2/sqrt(Hz)]: GLIM scales them by sqrt(dt) between scans. */
+  double imu_bias_noise_acc = 1e-5;
+  double imu_bias_noise_gyro = 1e-6;
   double imu_acc_noise = 0.05;
   double imu_gyro_noise = 0.02;
   double imu_int_noise = 0.001;
@@ -111,11 +114,13 @@ struct Config
   double vgicp_voxelmap_scaling_factor = 2.0;
 
   bool fix_imu_bias = false;
-  /** "LOOSE" or "NAIVE": how the initial attitude/velocity is bootstrapped. */
-  std::string initialization_mode = "LOOSE";
-  /** Seconds of LOOSE bootstrapping before the first pose is produced. Every
-   * scan in this window is consumed and reported as invalid, so it is also
-   * the length of trajectory missing from the head of every run. */
+  /** "ROBUST", "LOOSE" (deprecated upstream) or "NAIVE": how the initial
+   * attitude/velocity is bootstrapped. */
+  std::string initialization_mode = "ROBUST";
+  /** Minimum span, in seconds, of the scan history ROBUST/LOOSE bootstrap
+   * from (ROBUST also needs six scans). Scans consumed before that are
+   * reported as invalid, so at least this much trajectory is missing from the
+   * head of every run. */
   double initialization_window_size = 3.0;
   double init_pose_damping_scale = 1e10;
 
@@ -130,7 +135,8 @@ struct Config
    * neither of which this wrapper builds. */
   bool save_imu_rate_trajectory = false;
 
-  /** Threads used by both the preprocessor and the per-factor parallelism. */
+  /** Threads used by the preprocessor, the initial state estimation and the
+   * per-factor parallelism. */
   int num_threads = 2;
 
   // ---- wrapper-level ----

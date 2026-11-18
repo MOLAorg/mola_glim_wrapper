@@ -32,7 +32,8 @@ log_level: ${GLIM_LOG_LEVEL|error}
 imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
 imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
 imu_int_noise:  ${GLIM_INT_NOISE|0.001}
-imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+imu_bias_noise_acc:  ${GLIM_BIAS_NOISE_ACC|1e-5}
+imu_bias_noise_gyro: ${GLIM_BIAS_NOISE_GYRO|1e-6}
 
 distance_near_thresh: ${GLIM_NEAR_THRESH|0.5}
 distance_far_thresh:  ${GLIM_FAR_THRESH|60.0}
@@ -53,6 +54,8 @@ vgicp_resolution:  ${GLIM_VGICP_RESOLUTION|1.0}
 vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
 vgicp_voxelmap_scaling_factor: 2.0
 
+# LOOSE rather than upstream's default ROBUST, for the synthetic IMU: see
+# glim-kitti.yaml.
 initialization_mode: ${GLIM_INIT_MODE|LOOSE}
 initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}

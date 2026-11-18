@@ -6,7 +6,7 @@
 # raw/tracking). mola-glim-cli's --input-kitti-seq wraps KittiOdometryDataset
 # in a decorator that synthesizes a constant-gravity, zero-angular-rate
 # CObservationIMU immediately before each real LiDAR scan -- enough for GLIM's
-# LOOSE initialization to converge to "level, stationary", while the actual
+# initialization to converge to "level, stationary", while the actual
 # motion estimate comes entirely from LiDAR scan-to-model registration. The
 # same technique, with the same constant and the same one-sample-per-scan
 # rate, is what mola_dlio_wrapper and mola_fast_lio2_wrapper do for KITTI, so
@@ -49,7 +49,8 @@ log_level: ${GLIM_LOG_LEVEL|error}
 imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
 imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
 imu_int_noise:  ${GLIM_INT_NOISE|0.001}
-imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+imu_bias_noise_acc:  ${GLIM_BIAS_NOISE_ACC|1e-5}
+imu_bias_noise_gyro: ${GLIM_BIAS_NOISE_GYRO|1e-6}
 
 # --- Preprocessing. Automotive: a longer range and a coarser voxel than the
 #     handheld campus configuration. KITTI's published clouds are already
@@ -76,10 +77,14 @@ vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
 vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
+# LOOSE rather than upstream's default ROBUST: the synthetic IMU reports no
+# rotation, so ROBUST fits any turn in its window as a gyro bias, which then
+# seeds the smoother. Measured APE, LOOSE against ROBUST: kitti-04 0.181 m
+# against 0.208 m, kitti-07 0.877 m against 1.258 m.
 initialization_mode: ${GLIM_INIT_MODE|LOOSE}
-# Seconds of LOOSE bootstrapping. Every scan inside this window is consumed
-# without producing a pose, so this is also how much trajectory is missing
-# from the head of every run.
+# Seconds of scan history ROBUST/LOOSE bootstrap from (ROBUST also needs six
+# scans). Scans consumed before that produce no pose, so at least this much
+# trajectory is missing from the head of every run.
 initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false

@@ -37,7 +37,8 @@ log_level: ${GLIM_LOG_LEVEL|error}
 imu_acc_noise:  ${GLIM_ACC_NOISE|0.05}
 imu_gyro_noise: ${GLIM_GYRO_NOISE|0.02}
 imu_int_noise:  ${GLIM_INT_NOISE|0.001}
-imu_bias_noise: ${GLIM_BIAS_NOISE|1e-5}
+imu_bias_noise_acc:  ${GLIM_BIAS_NOISE_ACC|1e-5}
+imu_bias_noise_gyro: ${GLIM_BIAS_NOISE_GYRO|1e-6}
 
 # --- Preprocessing ---
 # A vehicle body sits around the sensor; 1.0 m matches the minimum range the
@@ -63,7 +64,7 @@ vgicp_voxelmap_levels: ${GLIM_VGICP_LEVELS|1}
 vgicp_voxelmap_scaling_factor: 2.0
 
 # --- Estimator ---
-initialization_mode: ${GLIM_INIT_MODE|LOOSE}
+initialization_mode: ${GLIM_INIT_MODE|ROBUST}
 initialization_window_size: ${GLIM_INIT_WINDOW|3.0}
 smoother_lag:        ${GLIM_SMOOTHER_LAG|5.0}
 fix_imu_bias:        false
