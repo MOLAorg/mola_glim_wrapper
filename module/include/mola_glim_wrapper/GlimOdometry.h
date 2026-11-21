@@ -56,10 +56,12 @@ namespace mola
  * global optimization; instantiating those would make its numbers
  * incomparable with the pure-odometry wrappers this package sits next to.
  *
- * LiDAR scans are processed on a single-thread worker pool with the
- * `POLICY_DROP_OLD` policy: fine for live use, but NOT loss-free. The
- * offline CLI (`mola-glim-cli`) achieves the loss-free guarantee by feeding
- * one observation at a time and busy-waiting on `isBusy()` before advancing.
+ * LiDAR scans are processed in order on a single-thread worker pool. One
+ * observation can release several scans at once (e.g. when the IMU wait
+ * times out), so the pool must not drop queued tasks: each one holds an
+ * in-flight count that `isBusy()` waits on. The offline CLI
+ * (`mola-glim-cli`) feeds one observation at a time and busy-waits on
+ * `isBusy()` before advancing.
  *
  * \ingroup mola_glim_wrapper_grp
  */
@@ -167,7 +169,7 @@ private:
   double last_imu_time_ = -std::numeric_limits<double>::infinity();
   std::mutex pending_mtx_;
 
-  mrpt::WorkerThreadsPool worker_lidar_{1, mrpt::WorkerThreadsPool::POLICY_DROP_OLD, "glim_lidar"};
+  mrpt::WorkerThreadsPool worker_lidar_{1, mrpt::WorkerThreadsPool::POLICY_FIFO, "glim_lidar"};
   std::atomic_int tasks_in_flight_{0};
 
   mutable std::mutex trajectory_mtx_;

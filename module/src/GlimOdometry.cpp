@@ -28,8 +28,10 @@
 #include <mrpt/viz/stock_objects.h>
 
 #include <algorithm>
+#include <chrono>
 #include <limits>
 #include <sstream>
+#include <thread>
 
 #include "GlimOdometry_Adapters.h"
 
@@ -67,6 +69,9 @@ mrpt::poses::CPose3D isometryToPose(const Eigen::Isometry3d & iso)
 /// measured on the sensor clock, before it is processed anyway.
 constexpr double kMaxImuWaitSeconds = 0.5;
 
+/// Longest time [s] the module waits at shutdown for the queued scans.
+constexpr double kMaxShutdownWaitSeconds = 30.0;
+
 Eigen::Isometry3d poseToIsometry(const mrpt::poses::CPose3D & p)
 {
   Eigen::Isometry3d iso = Eigen::Isometry3d::Identity();
@@ -87,6 +92,18 @@ void GlimOdometry::shutdownCleanup()
     return;
   }
 
+  // Process the scans still queued, so that the saved trajectory has them,
+  // but never block the shutdown for long:
+  const auto waitStart = std::chrono::steady_clock::now();
+  const auto maxWait = std::chrono::duration<double>(kMaxShutdownWaitSeconds);
+  while (isBusy() && std::chrono::steady_clock::now() - waitStart < maxWait) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if (isBusy()) {
+    MRPT_LOG_WARN_STREAM(
+      "Shutdown: " << worker_lidar_.pendingTasks() << " queued LiDAR scans discarded after waiting "
+                   << kMaxShutdownWaitSeconds << " s");
+  }
   worker_lidar_.clear();
 
   if (save_trajectory_to_file_ && !trajectory_output_file_.empty()) {
