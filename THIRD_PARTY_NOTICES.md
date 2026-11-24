@@ -90,7 +90,12 @@ the estimation math.
    package sets. Nothing is gated on it in a standalone build, so the tree
    still builds the way upstream intends.
 
-7. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
+7. **`src/glim/odometry/callbacks.cpp` — `FixedLagSmoother` include.**
+   GTSAM 4.3 moved `FixedLagSmoother.h` from `gtsam_unstable/nonlinear/` to
+   `gtsam/nonlinear/`, and the old path only forwards with a `#warning`. The
+   new path is used when it exists, and the old one otherwise (GTSAM 4.2).
+
+8. **Deleted, not modified:** `src/glim/viewer/`, `include/glim/viewer/`
    (need Iridescence, which is not packaged for this distro and is not built),
    plus `docs/`, `docker/`, `mkdocs.yml` and `package.xml` (this package
    supplies its own).

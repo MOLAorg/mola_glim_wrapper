@@ -67,6 +67,10 @@ set(BUILD_DEMO OFF CACHE BOOL "" FORCE)
 set(BUILD_TOOLS OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 
+# Vendored subprojects declare an older cmake_minimum_required(), which unsets
+# this policy for them: prefer BoostConfig.cmake over the removed FindBoost.
+set(CMAKE_POLICY_DEFAULT_CMP0167 NEW)
+
 add_subdirectory(third_party/gtsam_points)
 add_subdirectory(third_party/glim)
 

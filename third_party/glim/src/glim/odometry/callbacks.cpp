@@ -1,6 +1,10 @@
 #include <glim/odometry/callbacks.hpp>
 
+#if __has_include(<gtsam/nonlinear/FixedLagSmoother.h>)
+#include <gtsam/nonlinear/FixedLagSmoother.h>  // GTSAM >= 4.3
+#else
 #include <gtsam_unstable/nonlinear/FixedLagSmoother.h>
+#endif
 
 namespace glim {
 
